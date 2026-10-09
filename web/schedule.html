@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="referrer" content="no-referrer" />
+  <title>我的日程 · 小满</title>
+  <link rel="stylesheet" href="/static/schedule.css" />
+</head>
+<body>
+  <main class="planner">
+    <header class="masthead">
+      <div class="brand-mark" aria-hidden="true"><span class="mark-ear left"></span><span class="mark-ear right"></span><span class="mark-eyes">• •</span></div>
+      <div class="brand-copy"><strong>小满的日程簿</strong><span>把要紧的事，放在看得见的地方。</span></div>
+      <span class="private-tag">专属链接</span>
+    </header>
+
+    <section class="day-hero" aria-labelledby="dayTitle">
+      <div class="day-number" id="dayNumber">--</div>
+      <div class="day-intro">
+        <p id="dayWeekday">正在整理日程</p>
+        <h1 id="dayTitle">今天，慢慢来。</h1>
+        <span id="daySummary">小满正在翻看你的日程簿</span>
+      </div>
+      <div class="orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+    </section>
+
+    <section class="calendar" aria-label="选择日期">
+      <div class="calendar-head">
+        <div><h2>本周日程</h2><p id="weekLabel"></p></div>
+        <div class="week-actions"><button type="button" id="prevWeek" aria-label="上一周">‹</button><button type="button" id="todayButton">今天</button><button type="button" id="nextWeek" aria-label="下一周">›</button></div>
+      </div>
+      <div id="weekDays" class="week-days" role="group" aria-label="一周七天"></div>
+    </section>
+
+    <section class="agenda" aria-labelledby="agendaTitle">
+      <div class="agenda-head"><h2 id="agendaTitle">当天安排</h2><span id="agendaCount">0 件</span></div>
+      <p id="pageNotice" class="page-notice" role="status" hidden></p>
+      <div id="agendaList" class="agenda-list" aria-live="polite"></div>
+    </section>
+    <footer>日程来自你与小满的微信聊天。要新建提醒，回到聊天窗口告诉小满即可。</footer>
+  </main>
+  <script src="/static/schedule.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+.env
+.env.*
+!.env.example
+!.env.official.example
+.venv/
+.cache/
+output/
+.playwright-cli/
+__pycache__/
+*.py[cod]
+data/
+logs/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*
+*.pem
+*.key
+*.log
+*.zip
+backups/
+
+# 本机历史交接记录：含具体部署地址、账号标识和操作日志，不随源码发布。
+docs/本地运行与测试.md
+docs/正式号本机联调.md
+docs/正式公众号接入.md
+docs/审核等待期与新服务号接入计划.md
+
+# 本地编辑器和系统产物。
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

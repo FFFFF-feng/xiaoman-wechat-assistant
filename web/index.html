@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>夜巡猫窝 · 微信小宠物</title>
+  <link rel="icon" type="image/svg+xml" href="/static/paw.svg" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="pet-card">
+      <div class="stars"></div>
+      <div class="pet-head">
+        <div class="cat-avatar" aria-label="猫咪头像"><span class="ear left"></span><span class="ear right"></span><span class="eye left-eye"></span><span class="eye right-eye"></span><span class="nose"></span><span class="whisker w1"></span><span class="whisker w2"></span></div>
+        <div>
+          <p class="eyebrow">LOCAL MOCK CHAT</p>
+          <h1>夜巡猫窝</h1>
+          <p class="subtitle">小满 · 你的本地陪伴任务猫</p>
+        </div>
+        <div class="status-pill"><span class="status-dot"></span><span id="petStatus">清醒，等你吩咐</span></div>
+      </div>
+      <div class="pet-note">“想聊聊也好，有事要记也好，我都在这里。”</div>
+    </section>
+
+    <section class="grid">
+      <div class="chat-panel panel">
+        <div class="panel-title"><span>和小满说话</span><span id="parserMode" class="hint">正在检查解析模式…</span></div>
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <div class="quick-actions">
+          <button data-example="列出今天的任务">今天任务</button>
+          <button data-example="查询未完成任务">未完成</button>
+          <button data-example="今天有点累，陪我聊聊吧">陪我聊聊</button>
+          <button data-example="如果明天下雨，我出门要带伞吗">条件判断</button>
+          <button data-example="明天10点提醒我提交周报">示例提醒</button>
+        </div>
+        <form id="chatForm" class="composer">
+          <input id="chatInput" autocomplete="off" placeholder="想聊聊，或说：明天 10 点提醒我提交周报" />
+          <button type="submit" class="send-btn">发送</button>
+        </form>
+      </div>
+
+      <aside class="side-column">
+        <section class="panel task-panel">
+          <div class="panel-title"><span>今日任务</span><button id="refreshBtn" class="icon-btn" title="刷新">↻</button></div>
+          <div id="tasks" class="task-list"></div>
+        </section>
+        <section class="panel reminder-panel">
+          <div class="panel-title"><span>最近提醒</span><span class="orange-label">铃铛记录</span></div>
+          <div id="notifications" class="notification-list"></div>
+        </section>
+      </aside>
+    </section>
+    <footer>本地调试通道 · 数据位置以 .env 的 DATABASE_URL 为准 · <a href="/docs" target="_blank">打开 API 文档</a></footer>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
