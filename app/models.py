@@ -85,6 +85,19 @@ class ClawbotMessage(Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class ClawbotVoiceMessage(Base):
+    """Voice receipt and transcript only; never persist raw audio or provider credentials."""
+    __tablename__ = "clawbot_voice_messages"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    external_message_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    audio_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="processing", nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+
+
 class ClawbotDelivery(Base):
     """持久主动提醒队列。发送开始后不自动重试，避免不确定结果导致重复通知。"""
     __tablename__ = "clawbot_deliveries"

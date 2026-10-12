@@ -1,7 +1,7 @@
 {
   "id": "xiaoman-bridge",
   "name": "Xiaoman Python bridge",
-  "description": "Claims Weixin text messages and dispatches to the isolated local Xiaoman service.",
+  "description": "Claims trusted Weixin text and bounded voice messages for the isolated local Xiaoman service.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

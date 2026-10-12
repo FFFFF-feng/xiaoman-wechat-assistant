@@ -90,6 +90,13 @@ class ClawbotBridgeTests(TestCase):
         with self.sessions() as db:
             self.assertEqual(db.scalar(select(func.count()).select_from(Task)), 1)
 
+    def test_brand_query_does_not_claim_wechat_contact_was_renamed(self):
+        result = self.send("小满资料")
+        self.assertEqual(result.status_code, 200)
+        self.assertIn("没有修改接口", result.json()["reply"])
+        with self.sessions() as db:
+            self.assertEqual(db.scalar(select(func.count()).select_from(Task)), 0)
+
     def test_new_message_rate_limit_does_not_reject_cached_delivery(self):
         with patch("app.clawbot_router.RATE_LIMIT", 1):
             self.assertEqual(self.send().status_code, 200)

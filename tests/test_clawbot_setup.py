@@ -80,3 +80,29 @@ class RuntimeSetupTests(TestCase):
         with self.assertRaises(ValueError):
             setup.activate_runtime(self.root)
         self.assertEqual(before, config_path.read_bytes())
+
+    def test_features_preserve_credentials_bindings_and_model_settings(self):
+        self.initialize(); self.install_fixture(); setup.activate_runtime(self.root)
+        config_path = self.root / "state/openclaw.json"
+        before = json.loads(config_path.read_text(encoding="utf-8"))
+        bindings = (self.root / "state/xiaoman/bindings.json").read_bytes()
+        backup = setup.configure_features(self.root, enable_speech=True)
+        after = json.loads(config_path.read_text(encoding="utf-8"))
+        self.assertEqual(before["gateway"], after["gateway"])
+        self.assertEqual(before["models"], after["models"])
+        self.assertEqual(before["plugins"], after["plugins"])
+        self.assertEqual(bindings, (self.root / "state/xiaoman/bindings.json").read_bytes())
+        self.assertTrue((backup / "openclaw.json").is_file())
+        self.assertIn('ASR_ENABLED="true"', (self.root / "state/xiaoman/runtime.env").read_text())
+        self.assertIn("小满", (self.root / "workspace/IDENTITY.md").read_text(encoding="utf-8"))
+
+    def test_features_do_not_guess_between_multiple_agents(self):
+        self.initialize(); self.install_fixture(); setup.activate_runtime(self.root)
+        config_path = self.root / "state/openclaw.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["agents"]["entries"]["another"] = {"identity":{"name":"keep"}}
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        before = config_path.read_bytes()
+        with self.assertRaises(ValueError):
+            setup.configure_features(self.root)
+        self.assertEqual(before, config_path.read_bytes())

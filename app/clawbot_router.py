@@ -79,6 +79,18 @@ def wants_schedule(content: str) -> bool:
     )
 
 
+def wants_branding(content: str) -> bool:
+    return re.sub(r"[\s，,。.!！?？]", "", content) in {
+        "小满资料", "初始化小满", "设置小满头像", "设置小满昵称", "设置小满名字"}
+
+
+def branding_reply() -> ChatResponse:
+    voice = "你也可以发语音，说出待办或提醒；我会回显识别文字。" if os.getenv("ASR_ENABLED", "false").lower() == "true" else "当前音频识别未启用，请先发文字。"
+    return ChatResponse(action="chat", reply="我是小满，网页和项目后台使用小满名称与猫爪图标。\n"
+                        "微信中的ClawBot联系人名称和头像由微信客户端控制，当前插件没有修改接口，不能替你自动改名或换头像。\n"
+                        "我可以聊天、记录提醒、查询待办和打开日程。" + voice)
+
+
 def schedule_reply(db: Session, owner: str, base_url: str | None) -> ChatResponse:
     if not base_url:
         if os.getenv("CLAWBOT_PUBLIC_URL_FILE"):
@@ -128,9 +140,12 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
             raise HTTPException(409, "消息正在处理") from None
         record_id = record.id
         try:
-            response = schedule_reply(db, owner, base_url) if wants_schedule(payload.content) else handle_chat_message(
-                payload.content, db, conversation_id=owner
-            )
+            if wants_branding(payload.content):
+                response = branding_reply()
+            elif wants_schedule(payload.content):
+                response = schedule_reply(db, owner, base_url)
+            else:
+                response = handle_chat_message(payload.content, db, conversation_id=owner)
             saved = response.model_copy(update={"reply": "[日程链接已发送；授权令牌未保存]"}) if wants_schedule(payload.content) and base_url else response
             record.reply_content = saved.reply
             record.response_json = saved.model_dump_json()
