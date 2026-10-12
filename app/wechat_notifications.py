@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .adapters.wechat_official import wechat_adapter
 from .models import Reminder, Task, WechatDeliveryReceipt, WechatSubscription, WechatUser
+from .clawbot_identity import is_clawbot_owner
 
 
 class NotificationBlocked(RuntimeError):
@@ -170,6 +171,9 @@ def _pending_count(db: Session, owner_id: str, channel: str, exclude_task_id: in
 
 def plan_reminder(db: Session, owner_id: str | None, due_at: datetime, title: str = "提醒",
                   exclude_task_id: int | None = None, reserve_reply: bool = True) -> tuple[str | None, str | None]:
+    if is_clawbot_owner(owner_id):
+        from .clawbot_delivery import enabled
+        return ("clawbot" if enabled() else "clawbot_pending"), None
     if not owner_id or not owner_id.startswith("wechat:"):
         return None, None
     if not official_mode() and reminder_mode() == "customer":

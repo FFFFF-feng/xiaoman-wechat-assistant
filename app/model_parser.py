@@ -213,6 +213,11 @@ title 只保留任务内容，不包含“提醒我、完成、取消、任务�
 不要猜测缺失的时间，不要声称已经执行尚未执行的任务。
 必须只输出一个 JSON 对象，字段固定为 action、title、due_at、confidence、message，不要输出 Markdown 或结构以外的文字。"""
     try:
+        if os.getenv("CLAWBOT_ENABLED", "false").lower() == "true":
+            active = os.getenv("CLAWBOT_REMINDERS_ENABLED", "false").lower() == "true"
+            instructions += ("\n当前微信插件支持任务到期提醒，但必须保持本机服务在线，平台拒绝或网络失败会导致未送达。不得保证任意期限必定送达。"
+                             if active else "\n当前微信插件主动提醒尚未接通，不要承诺会自动推送提醒。")
+            instructions += "不支持读取私人微信通讯录或合并聊天记录。"
         input_messages: list[dict[str, str]] = [{"role": "system", "content": instructions}]
         for item in (history or [])[-CHAT_HISTORY_LIMIT * 2 :]:
             role = item.get("role")

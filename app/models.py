@@ -70,6 +70,38 @@ class WechatMessage(Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class ClawbotMessage(Base):
+    """真实微信插件入站消息；独立去重、历史和任务归属，不混用公众号记录。"""
+
+    __tablename__ = "clawbot_messages"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    external_message_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    owner_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    reply_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="processing", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False, index=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ClawbotDelivery(Base):
+    """持久主动提醒队列。发送开始后不自动重试，避免不确定结果导致重复通知。"""
+    __tablename__ = "clawbot_deliveries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    reminder_id: Mapped[int] = mapped_column(ForeignKey("reminders.id"), unique=True, nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    claim_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class WechatUser(Base):
     """按 AppID 隔离用户及客服消息窗口，OpenID 不跨账号迁移。"""
     __tablename__ = "wechat_users"

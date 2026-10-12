@@ -12,6 +12,8 @@ from .adapters.mock import MockChatAdapter
 from .adapters.wechat_official import WechatAPIError
 from .database import SessionLocal
 from .models import Message, Reminder, Task
+from .clawbot_identity import is_clawbot_owner
+from . import clawbot_delivery
 from .wechat_notifications import NotificationBlocked, app_id, apply_receipt, reminder_mode, send_reminder
 
 logger = logging.getLogger(__name__)
@@ -23,9 +25,11 @@ scheduler = BackgroundScheduler()
 
 
 def _send_due_reminder(task: Task, content: str, db, now: datetime) -> tuple[str, dict]:
-    """只把公众号任务发给创建它的 OpenID；其他任务保持本地模拟通道。"""
+    """公众号按身份投递；ClawBot 未接投递器时阻断，保留其他渠道既有行为。"""
     if task.owner_id and task.owner_id.startswith("wechat:"):
         return send_reminder(db, task, content, now)
+    if is_clawbot_owner(task.owner_id):
+        raise NotificationBlocked("微信插件主动提醒投递器尚未接通", "clawbot_not_configured")
     adapter.send("local-user", content)
     return "mock", {"errcode": 0}
 
@@ -55,8 +59,18 @@ def check_due_tasks() -> None:
             reminder = Reminder(task_id=task.id, reminder_time=task.due_at, status="sending")
             db.add(reminder)
             content = f"该完成任务啦：{task.title}"
-            db.add(Message(message_type="reminder", content=content, created_at=now))
+            if task.owner_id is None:
+                db.add(Message(message_type="reminder", content=content, created_at=now))
             db.commit()
+            if is_clawbot_owner(task.owner_id) and clawbot_delivery.enabled():
+                if now - task.due_at > clawbot_delivery.max_lateness():
+                    reminder.channel = "clawbot"
+                    reminder.status = "missed"
+                    reminder.error_code = "too_late"
+                else:
+                    clawbot_delivery.enqueue(db, reminder, task.owner_id, task.title)
+                db.commit()
+                continue
             if (
                 task.owner_id
                 and task.owner_id.startswith("wechat:")
@@ -70,6 +84,8 @@ def check_due_tasks() -> None:
                 continue
             try:
                 reminder.channel = (task.reminder_channel or reminder_mode()) if task.owner_id and task.owner_id.startswith("wechat:") else "mock"
+                if is_clawbot_owner(task.owner_id):
+                    reminder.channel = "clawbot_pending"
                 channel, result = _send_due_reminder(task, content, db, now)
             except Exception as exc:
                 logger.exception("发送到期提醒失败 task_id=%s channel=%s", task.id,

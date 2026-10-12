@@ -1,0 +1,15 @@
+{
+  "id": "xiaoman-bridge",
+  "name": "Xiaoman Python bridge",
+  "description": "Claims Weixin text messages and dispatches to the isolated local Xiaoman service.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["backendUrl", "tokenFile", "bindingsFile"],
+    "properties": {
+      "backendUrl": { "type": "string", "const": "http://127.0.0.1:18083" },
+      "tokenFile": { "type": "string", "minLength": 1 },
+      "bindingsFile": { "type": "string", "minLength": 1 }
+    }
+  }
+}

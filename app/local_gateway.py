@@ -16,15 +16,15 @@ READ_ONLY_PATHS = {"/schedule", "/static/schedule.css", "/static/schedule.js", "
 SCHEDULE_ACTION = re.compile(r"/api/schedule/tasks/[1-9][0-9]*/(?:complete|snooze|cancel)")
 
 
-def allowed_path(path: str, method: str) -> bool:
+def allowed_path(path: str, method: str, *, schedule_only: bool = False) -> bool:
     if path == CALLBACK:
-        return method in {"GET", "POST"}
+        return not schedule_only and method in {"GET", "POST"}
     if path in READ_ONLY_PATHS or path == "/api/schedule/tasks":
         return method in {"GET", "HEAD"}
     return method == "POST" and bool(SCHEDULE_ACTION.fullmatch(path))
 
 
-def create_gateway(upstream_port: int = 18082, *, transport=None) -> FastAPI:
+def create_gateway(upstream_port: int = 18082, *, transport=None, schedule_only: bool = False) -> FastAPI:
     if not 1024 <= upstream_port <= 65535:
         raise ValueError("本地上游端口无效")
     upstream = f"http://127.0.0.1:{upstream_port}"
@@ -42,7 +42,7 @@ def create_gateway(upstream_port: int = 18082, *, transport=None) -> FastAPI:
 
     @gateway.api_route("/{path:path}", methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
     async def proxy(request: Request, path: str):
-        if not allowed_path(request.url.path, request.method):
+        if not allowed_path(request.url.path, request.method, schedule_only=schedule_only):
             return Response(status_code=404)
         length = request.headers.get("content-length")
         try:
@@ -78,10 +78,19 @@ def create_gateway(upstream_port: int = 18082, *, transport=None) -> FastAPI:
                         return Response(status_code=502)
                 response_headers = {
                     name: result.headers[name] for name in
-                    ("content-type", "cache-control", "referrer-policy") if name in result.headers
+                    ("content-type", "cache-control", "referrer-policy", "content-security-policy") if name in result.headers
                 }
                 response_headers["x-content-type-options"] = "nosniff"
                 response_headers["referrer-policy"] = "no-referrer"
+                if schedule_only:
+                    response_headers["cache-control"] = "no-store"
+                    response_headers["x-frame-options"] = "DENY"
+                    # Preserve the bundled page's exact script/style hashes from our fixed local upstream.
+                    response_headers.setdefault("content-security-policy", (
+                        "default-src 'none'; script-src 'self'; style-src 'self'; "
+                        "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+                        "base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+                    ))
                 return Response(content=bytes(response_body), status_code=result.status_code,
                                 headers=response_headers)
         except (httpx.HTTPError, UnicodeDecodeError):

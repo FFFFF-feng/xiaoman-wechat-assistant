@@ -7,7 +7,9 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from .model_parser import CHAT_HISTORY_LIMIT, parse_with_model
-from .models import Message, Task, WechatDialogueMessage, WechatMessage
+from .models import ClawbotMessage, Message, Task, WechatDialogueMessage, WechatMessage
+from .clawbot_identity import is_clawbot_owner
+from .clawbot_delivery import enabled as clawbot_reminders_enabled
 from .parser import (
     CREATE_PATTERN,
     RELATIVE_MINUTES_PATTERN,
@@ -17,6 +19,7 @@ from .parser import (
     now_local,
     parse_command,
     parse_time_followup,
+    reminder_intent_guard,
 )
 from .schemas import ChatResponse
 from .wechat_notifications import NotificationBlocked, app_id, official_mode, plan_reminder, recipient_for
@@ -53,6 +56,18 @@ def _find_task(
 def _recent_chat_history(db: Session, conversation_id: str | None = None) -> list[dict[str, str]]:
     if CHAT_HISTORY_LIMIT <= 0:
         return []
+    if is_clawbot_owner(conversation_id):
+        rows = db.scalars(
+            select(ClawbotMessage)
+            .where(ClawbotMessage.owner_id == conversation_id,
+                   ClawbotMessage.status == "processed", ClawbotMessage.reply_content.is_not(None))
+            .order_by(desc(ClawbotMessage.created_at), desc(ClawbotMessage.id))
+            .limit(CHAT_HISTORY_LIMIT)
+        ).all()
+        return [item for row in reversed(rows) for item in (
+            {"role": "user", "content": row.content},
+            {"role": "assistant", "content": row.reply_content or ""},
+        )]
     if conversation_id and conversation_id.startswith("wechat-dialogue:"):
         user_id = conversation_id.partition(":")[2]
         rows = db.scalars(
@@ -134,6 +149,13 @@ def _reconcile_commands(
     模型成功返回时，只有它明确给出任务 action 才能进入任务分支。
     创建和改期的日期时间仍由本地规则复核，避免模型幻觉写入数据库。
     """
+    guarded = reminder_intent_guard(text)
+    if guarded is not None:
+        # 保留模型的安全聊天/澄清，但错误的任务 action 不能越过规则边界。
+        if model_command is not None and model_command.action in {"chat", "clarify"}:
+            return model_command
+        guarded.source = "hybrid" if model_command is not None else "rules"
+        return guarded
     if followup_command is not None:
         if followup_command.action == "create" and model_command and model_command.title:
             followup_command.title = model_command.title
@@ -269,11 +291,15 @@ def _execute_command(
         )
         db.add(task)
         db.flush()
-        record_message(db, "user", f"创建：{task.title}")
+        if owner_id is None:
+            record_message(db, "user", f"创建：{task.title}")
         db.commit()
         db.refresh(task)
         return ChatResponse(
-            reply=f"收到，我会在 {task.due_at.strftime('%m月%d日 %H:%M')} 提醒你：{task.title}。",
+            reply=(f"已记录：{task.title}，时间 {task.due_at.strftime('%m月%d日 %H:%M')}。"
+                   + ("\n到时会尝试通过微信提醒，请保持电脑、小满和微信网关运行并联网。" if clawbot_reminders_enabled()
+                      else "\n微信插件的主动提醒尚未接通，暂不会自动发送。")) if is_clawbot_owner(owner_id)
+                  else f"收到，我会在 {task.due_at.strftime('%m月%d日 %H:%M')} 提醒你：{task.title}。",
             action="create",
             task=task,
         )
@@ -317,10 +343,14 @@ def _execute_command(
         task.notification_template_id = template_id
         task.status = "snoozed"
         reply = f"知道啦，「{task.title}」延后到 {task.due_at.strftime('%m月%d日 %H:%M')}。"
+        if is_clawbot_owner(owner_id):
+            reply += ("\n到时会尝试通过微信提醒，请保持本机服务运行并联网。" if clawbot_reminders_enabled()
+                      else "\n微信插件的主动提醒尚未接通，暂不会自动发送。")
     else:
         reply = "已处理。"
     task.updated_at = datetime.now()
-    record_message(db, "user", reply)
+    if owner_id is None:
+        record_message(db, "user", reply)
     db.commit()
     db.refresh(task)
     return ChatResponse(reply=reply, action=command.action, task=task)
@@ -354,10 +384,11 @@ def handle_chat_message(
             source="rules",
         )
 
-    owner_id = conversation_id if conversation_id and conversation_id.startswith("wechat") else None
+    remote_conversation = bool(conversation_id and conversation_id.startswith("wechat")) or is_clawbot_owner(conversation_id)
+    owner_id = conversation_id if remote_conversation else None
     response = _execute_command(command, db, owner_id=owner_id)
     response.parser = command.source
-    if not (conversation_id and conversation_id.startswith("wechat")):
+    if not remote_conversation:
         record_message(db, "chat_user", normalized)
         record_message(db, "chat_assistant", response.reply)
     db.commit()

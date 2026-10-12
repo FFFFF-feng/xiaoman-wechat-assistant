@@ -7,8 +7,9 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-EXAMPLES = {".env.example", ".env.official.example"}
-PRIVATE_DIRS = {".venv", ".cache", "data", "logs", "output", "backups", "__pycache__"}
+EXAMPLES = {".env.example", ".env.official.example", ".env.clawbot.example"}
+PRIVATE_DIRS = {".venv", ".cache", "data", "logs", "output", "backups", "__pycache__",
+                "node_modules", "state", "private", "runtime", "npm", ".playwright-cli"}
 PRIVATE_DOCS = {
     "docs/本地运行与测试.md", "docs/正式号本机联调.md",
     "docs/正式公众号接入.md", "docs/审核等待期与新服务号接入计划.md",

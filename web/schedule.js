@@ -22,8 +22,27 @@ function getAccessToken() {
   }
   try { return sessionStorage.getItem('schedule_access') || ''; } catch (_) { return ''; }
 }
+async function requestWithRetry(path, options = {}, fetcher = fetch, wait = ms => new Promise(resolve => setTimeout(resolve, ms))) {
+  const readOnly = (options.method || 'GET').toUpperCase() === 'GET';
+  const attempts = readOnly ? 3 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const response = await fetcher(path, { ...options, signal: AbortSignal.timeout(8000) });
+      const transient = [502, 503, 504].includes(response.status) || (response.status >= 520 && response.status <= 530);
+      if (!transient || attempt === attempts - 1) return response;
+      await response.body?.cancel();
+    } catch (error) {
+      if (attempt === attempts - 1) {
+        const failure = new Error(readOnly ? '连接暂时中断，请点击“重新加载日程”。' : '操作结果尚未确认，请先重新加载日程确认状态，不要重复操作。');
+        failure.uncertain = !readOnly;
+        throw failure;
+      }
+    }
+    await wait(500 * (attempt + 1));
+  }
+}
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await requestWithRetry(path, {
     ...options,
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json', ...(options.headers || {}) },
     cache: 'no-store',
@@ -35,9 +54,18 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    throw new Error(typeof detail.detail === 'string' ? detail.detail : '日程暂时无法读取，请稍后重试。');
+    const writeUnknown = (options.method || 'GET').toUpperCase() !== 'GET' && response.status >= 500;
+    const error = new Error(writeUnknown ? '操作结果尚未确认，请先重新加载日程确认状态，不要重复操作。' :
+      typeof detail.detail === 'string' ? detail.detail : '日程暂时无法读取，请点击“重新加载日程”。');
+    error.uncertain = writeUnknown;
+    throw error;
   }
-  return response.json();
+  try { return await response.json(); }
+  catch (_) {
+    const error = new Error('响应未完整收到，请先重新加载日程确认状态。');
+    error.uncertain = (options.method || 'GET').toUpperCase() !== 'GET';
+    throw error;
+  }
 }
 function renderWeek() {
   const end = addDays(weekStart, 6);
@@ -60,7 +88,15 @@ function renderWeek() {
     container.appendChild(button);
   }
 }
-function taskButton(label, action, taskId, danger = false) {
+function snoozeTime(dueAt, nowMs = Date.now()) {
+  // Future tasks move from their planned time, not backwards to now + 1 hour.
+  // The API's naive timestamps are in the application's Asia/Shanghai timezone.
+  const timestamp = /(?:Z|[+-]\d{2}:\d{2})$/i.test(dueAt) ? dueAt : `${dueAt}+08:00`;
+  const plannedMs = Date.parse(timestamp);
+  const baseMs = Number.isFinite(plannedMs) ? Math.max(plannedMs, nowMs) : nowMs;
+  return new Date(baseMs + 3600000).toISOString();
+}
+function taskButton(label, action, taskId, dueAt, danger = false) {
   const button = document.createElement('button');
   button.type = 'button'; button.textContent = label;
   if (danger) button.classList.add('danger');
@@ -69,11 +105,12 @@ function taskButton(label, action, taskId, danger = false) {
     button.disabled = true; note('');
     try {
       const options = { method: 'POST' };
-      if (action === 'snooze') options.body = JSON.stringify({ due_at: new Date(Date.now() + 3600000).toISOString() });
+      if (action === 'snooze') options.body = JSON.stringify({ due_at: snoozeTime(dueAt) });
       await api(`/api/schedule/tasks/${taskId}/${action}`, options);
-      await loadWeek();
+      try { await loadWeek(); }
+      catch (_) { showLoadError(new Error('操作已成功，但列表刷新失败，请重新加载日程。')); return; }
       note(action === 'complete' ? '已标记完成。' : action === 'cancel' ? '已取消日程。' : '已延后一小时。');
-    } catch (error) { note(error.message); button.disabled = false; }
+    } catch (error) { showLoadError(error); if (!error.uncertain) button.disabled = false; }
   });
   return button;
 }
@@ -105,7 +142,7 @@ function renderAgenda() {
     detail.append(title, state);
     if (task.status === 'open' || task.status === 'snoozed') {
       const actions = document.createElement('div'); actions.className = 'task-buttons';
-      actions.append(taskButton('完成', 'complete', task.id), taskButton('延后1小时', 'snooze', task.id), taskButton('取消', 'cancel', task.id, true));
+      actions.append(taskButton('完成', 'complete', task.id, task.due_at), taskButton('延后1小时', 'snooze', task.id, task.due_at), taskButton('取消', 'cancel', task.id, task.due_at, true));
       detail.appendChild(actions);
     }
     row.append(clock, track, detail); list.appendChild(row);
@@ -113,23 +150,26 @@ function renderAgenda() {
 }
 function render() { renderWeek(); renderAgenda(); }
 async function loadWeek() {
+  $('#retryButton').hidden = true;
   const end = addDays(weekStart, 6);
   weekTasks = await api(`/api/schedule/tasks?start=${ymd(weekStart)}&end=${ymd(end)}`);
   render();
 }
+function showLoadError(error) { note(error.message); $('#retryButton').hidden = !accessToken; }
 async function shiftWeek(days) {
   weekStart = addDays(weekStart, days);
   selectedDay = addDays(selectedDay, days);
   note('');
-  try { await loadWeek(); } catch (error) { note(error.message); }
+  try { await loadWeek(); } catch (error) { showLoadError(error); }
 }
 $('#prevWeek').addEventListener('click', () => shiftWeek(-7));
 $('#nextWeek').addEventListener('click', () => shiftWeek(7));
-$('#todayButton').addEventListener('click', async () => { selectedDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()); weekStart = mondayOf(selectedDay); note(''); try { await loadWeek(); } catch (error) { note(error.message); } });
+$('#todayButton').addEventListener('click', async () => { selectedDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()); weekStart = mondayOf(selectedDay); note(''); try { await loadWeek(); } catch (error) { showLoadError(error); } });
+$('#retryButton').addEventListener('click', async () => { note('正在重新连接…'); try { await loadWeek(); note(''); } catch (error) { showLoadError(error); } });
 accessToken = getAccessToken();
 render();
 if (!accessToken) {
   $('#agendaList').replaceChildren();
   note('请回到微信聊天窗口发送“打开日程”，再点击小满发来的专属链接。');
 }
-else loadWeek().catch(error => note(error.message));
+else loadWeek().catch(showLoadError);

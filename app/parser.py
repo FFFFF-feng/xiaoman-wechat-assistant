@@ -59,6 +59,42 @@ def has_time_expression(text: str) -> bool:
                 or re.search(r"\d{1,2}(?:[:：]\d{1,2})?\s*(?:am|pm)", text, re.I))
 
 
+def reminder_intent_guard(text: str) -> ParsedCommand | None:
+    """否定提醒和未实现的条件触发不能降级为普通定时任务。
+
+    只检查首个创建动作之前的语义，不能把“提醒我不要忘记……”
+    或“提醒我检查如果下雨怎么办”中的提醒内容当作命令否定。
+    这是确定性安全边界，不是完整的自然语言语义解析器。
+    """
+    content = re.sub(r"\s+", "", text)
+    trigger = re.search(CREATE_PATTERN, content)
+    if trigger is None:
+        return None
+    prefix = content[:trigger.start()]
+    # “不要在明天十点提醒我”与“不要提醒我明天十点”同样是否定。
+    intent_prefix = re.sub(DATE_PATTERN, "", prefix)
+    intent_prefix = re.sub(TIME_PATTERN, "", intent_prefix)
+    intent_prefix = re.sub(RELATIVE_MINUTES_PATTERN, "", intent_prefix)
+    intent_prefix = re.sub(r"\d{1,2}(?:[:：]\d{1,2})?\s*(?:am|pm)", "", intent_prefix, flags=re.I)
+    if re.search(
+        r"(?:不要|不用|不必|不需要|无需|别|不想|不希望|禁止)"
+        r"(?:再|继续|给我|帮我|你|您|对我|为我|替我|去|来|在|到|设置|设定|一个|一条|任何)*$",
+        intent_prefix,
+    ):
+        return ParsedCommand(
+            "clarify", confidence="low",
+            message="这次没有创建或修改提醒。如果你想取消已有任务，请明确说“取消＋任务名称”。",
+        )
+    reminder = re.search(r"提醒|叫我", content)
+    condition_prefix = content[:reminder.start()] if reminder else prefix
+    if re.search(r"如果|假如|要是|一旦", condition_prefix):
+        return ParsedCommand(
+            "clarify", confidence="low",
+            message="目前只支持定时提醒，不支持按条件自动触发。这次没有创建或修改任务；如果需要，请改成明确的定时提醒。",
+        )
+    return None
+
+
 def _extract_datetime(text: str) -> tuple[datetime | None, str | None]:
     relative_match = re.search(RELATIVE_MINUTES_PATTERN, text)
     if relative_match:
@@ -144,7 +180,7 @@ def parse_time_followup(
     if not previous_user_text:
         return None
     # 上一条若已成功创建，不能因用户再回“今天”而创建重复任务。
-    if previous_assistant_text and previous_assistant_text.startswith("收到，我会在 "):
+    if previous_assistant_text and previous_assistant_text.startswith(("收到，我会在 ", "已记录：")):
         return None
     # 新消息已经带有“提醒/创建”等完整动作词时，应视为一条新的请求。
     # 不能把它误当成上一条日程的补充，否则会擅自继承上一轮的日期。
@@ -165,6 +201,10 @@ def parse_time_followup(
         return None
     if not re.search(CREATE_PATTERN, previous_user_text):
         return None
+    # 时间补全不能把上一轮被拒绝的否定/条件请求重新变成创建操作。
+    guarded = reminder_intent_guard(previous_user_text)
+    if guarded is not None:
+        return guarded
     combined = f"{text} {previous_user_text}"
     if not has_time_expression(combined):
         return None
@@ -182,6 +222,24 @@ def parse_time_followup(
 
 def parse_command(text: str) -> ParsedCommand:
     content = text.strip()
+    guarded = reminder_intent_guard(content)
+    if guarded is not None:
+        return guarded
+
+    def create_command() -> ParsedCommand:
+        due_at, error = _extract_datetime(content)
+        if error:
+            return ParsedCommand("clarify", confidence="low", message=error)
+        if due_at is None:
+            return ParsedCommand("clarify", confidence="low", message="请告诉我几点提醒；不写日期默认今天，例如“下午5点提醒我提交周报”。")
+        return ParsedCommand("create", title=_extract_title(content), due_at=due_at)
+
+    # 创建动作之后的“取消/完成/查看”等可能只是提醒事项的内容，
+    # 如“明天十点提醒我不要取消预约”，不能执行取消现有任务。
+    creation = re.search(r"提醒我|叫我", content)
+    other_action = re.search(r"列出|查看|查询|完成|搞定|做完|取消|删除|延后|推迟|延期|改到", content)
+    if creation and (other_action is None or creation.start() < other_action.start()):
+        return create_command()
     if re.search(r"未完成|没完成|没有完成|还没完成|待办", content) and re.search(r"列出|查看|查询|看看|哪些|有什么|任务|事项", content):
         return ParsedCommand("list_open")
     if re.search(r"列出|查看|查询|今天.*任务|任务列表", content):
@@ -207,10 +265,5 @@ def parse_command(text: str) -> ParsedCommand:
             return ParsedCommand("clarify", confidence="low", message="你想把任务延后到几点？不写日期默认今天，例如“把周报延后到今天17点”。")
         return ParsedCommand("snooze", title=title, due_at=due_at)
     if re.search(CREATE_PATTERN, content):
-        due_at, error = _extract_datetime(content)
-        if error:
-            return ParsedCommand("clarify", confidence="low", message=error)
-        if due_at is None:
-            return ParsedCommand("clarify", confidence="low", message="请告诉我几点提醒；不写日期默认今天，例如“下午5点提醒我提交周报”。")
-        return ParsedCommand("create", title=_extract_title(content), due_at=due_at)
+        return create_command()
     return ParsedCommand("unknown", confidence="low", message="我可以帮你创建、查询、完成、延后或取消任务。试试“明天10点提醒我提交周报”。")

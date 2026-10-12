@@ -17,12 +17,15 @@ from sqlalchemy.orm import Session
 from .adapters.wechat_official import wechat_channel_status
 from .adapters.wechat_dialogue import wechat_dialogue_status
 from .chat_service import handle_chat_message, record_message
+from .clawbot_router import router as clawbot_router, bridge_enabled
+from .clawbot_delivery import status as clawbot_reminder_status
 from .database import get_db, init_db
 from .model_parser import model_status
 from .models import Reminder, Task
 from .parser import now_local
 from .scheduler import scheduler, start_scheduler, stop_scheduler
 from .schedule_router import router as schedule_router
+from .schedule_page import schedule_page_response
 from .schemas import ChatRequest, ChatResponse, SnoozeRequest, TaskCreate, TaskRead
 from .wechat_router import router as wechat_router
 from .wechat_dialogue_router import router as wechat_dialogue_router
@@ -61,6 +64,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 app.include_router(wechat_router)
 app.include_router(wechat_dialogue_router)
 app.include_router(schedule_router)
+app.include_router(clawbot_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "web"), name="static")
 # 提前建表，确保 reload 或直接导入应用时 API 也能立即使用。
 init_db()
@@ -80,10 +84,7 @@ def home():
 
 @app.get("/schedule", include_in_schema=False)
 def schedule_page():
-    return FileResponse(
-        BASE_DIR / "web" / "schedule.html",
-        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
-    )
+    return schedule_page_response()
 
 
 @app.get("/health")
@@ -98,6 +99,7 @@ def health():
             "mock": {"enabled": True},
             "wechat_official": wechat_channel_status(),
             "wechat_dialogue": wechat_dialogue_status(),
+            "clawbot": {"enabled": bridge_enabled(), "reminders": clawbot_reminder_status()},
         },
         "time": datetime.now().isoformat(),
     }

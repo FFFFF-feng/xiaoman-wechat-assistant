@@ -1,0 +1,12 @@
+{
+  "name": "@xiaoman/openclaw-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test tests/*.test.js" },
+  "peerDependencies": { "openclaw": "2026.10.1" },
+  "openclaw": {
+    "extensions": ["./index.js"],
+    "compat": { "pluginApi": "2026.10.1", "minGatewayVersion": "2026.10.1" }
+  }
+}

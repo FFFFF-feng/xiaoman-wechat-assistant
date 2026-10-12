@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 !.env.official.example
+!.env.clawbot.example
 .venv/
 .cache/
 output/
@@ -19,6 +20,11 @@ logs/
 *.log
 *.zip
 backups/
+node_modules/
+state/
+private/
+runtime/
+npm/
 
 # 本机历史交接记录：含具体部署地址、账号标识和操作日志，不随源码发布。
 docs/本地运行与测试.md
