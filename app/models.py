@@ -102,6 +102,24 @@ class ClawbotDelivery(Base):
     error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
+class ClawbotInvitation(Base):
+    """Single-user enrollment capability. No raw invitation, Weixin token or pairing code."""
+    __tablename__ = "clawbot_invitations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(60), nullable=False)
+    state: Mapped[str] = mapped_column(String(30), default="issued", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    lease_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    consented_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    qr_image: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    owner_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
 class WechatUser(Base):
     """按 AppID 隔离用户及客服消息窗口，OpenID 不跨账号迁移。"""
     __tablename__ = "wechat_users"

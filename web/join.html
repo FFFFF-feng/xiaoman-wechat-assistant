@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>接入小满 · 我的微信助手</title><link rel="icon" href="/static/paw.svg" /><link rel="stylesheet" href="/static/join.css" /></head>
+<body><main>
+<header><div class="cat" aria-hidden="true"><span>••</span></div><span>小满</span><span class="private">邀请体验</span></header>
+<div class="layout">
+<section class="intro"><h1>把小满<br />带进你的微信。</h1>
+<p class="lead">聊聊天，记下待办，<br />到了时间，就提醒你。</p>
+<ol class="steps"><li>打开你的专属邀请</li><li>用本人微信扫码并确认连接</li><li>回到微信，给 ClawBot 发「你好，小满」</li></ol>
+<aside><h2>你的日程，只属于你</h2><p>每个人使用独立的任务、聊天记录和日程链接。聊天内容会发送到项目配置的大模型服务；请勿输入密码或敏感资料。</p>
+<p>已接入的微信请勿重复扫码。二维码连接的是本项目部署实例，不是一个可共用的微信好友二维码。</p></aside></section>
+<section class="connection" aria-labelledby="connection-title"><h2 id="connection-title">连接我的微信</h2>
+<p id="status" role="status" aria-live="polite">需要管理员发给你的邀请链接。</p>
+<form id="invite-form"><label for="invite">邀请码</label><input id="invite" type="password" autocomplete="off" spellcheck="false" maxlength="100" placeholder="粘贴邀请中的邀请码" required /><button>读取邀请</button></form>
+<div id="consent" hidden><label class="check"><input id="agree" type="checkbox" />我了解以上数据用途，同意连接本人微信。</label><button id="start" disabled>生成我的连接二维码</button></div>
+<figure id="qr-box" hidden><img id="qr" alt="用本人微信扫描此连接二维码" width="280" height="280" /><figcaption>请用微信「扫一扫」。同一手机可保存图片后识别；以微信实际提示为准。</figcaption></figure>
+<form id="code-form" hidden><label for="code">手机显示的配对数字</label><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{2,12}" minlength="2" maxlength="12" required /><button>确认配对数字</button></form>
+<div id="success" hidden><h3>已完成微信授权</h3><p>现在去微信 ClawBot 对话发送：</p><blockquote>你好，小满<br />一分钟后提醒我喝水<br />打开日程</blockquote><p>收到回复和提醒后，才算完成端到端体验。电脑或服务器需要持续在线。</p></div>
+<button id="cancel" class="secondary" hidden>取消本次连接</button><button id="revoke" class="secondary" hidden>撤销我的接入</button>
+<div id="phone-transfer" hidden><button id="copy-invite" class="secondary">复制本邀请链接到手机</button>
+<input id="phone-link" type="text" readonly aria-label="本邀请的手机链接" hidden />
+<p class="hint">只发给这位体验者本人。手机打开完整 HTTPS 链接，不要复制电脑的 127.0.0.1 地址；已连接的微信不要再次扫码。</p></div>
+<p id="expiry" class="hint"></p><p class="hint">邀请 30 分钟内有效。到期后如需撤销，请联系部署管理员；撤销不会删除历史任务。</p>
+</section></div><footer>小满 · 每个人一份自己的猫窝</footer>
+</main><script src="/static/join.js" defer></script></body></html>

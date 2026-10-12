@@ -1,0 +1,22 @@
+# ONLY for a new, dedicated domain. Do not replace an existing company server block.
+# Replace domain and certificate paths, then run nginx -t before reloading.
+server {
+    listen 443 ssl;
+    server_name schedule.example.com;
+    ssl_certificate /etc/letsencrypt/live/schedule.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/schedule.example.com/privkey.pem;
+    client_max_body_size 256k;
+    access_log off;
+
+    location / {
+        proxy_pass http://127.0.0.1:18084;
+        proxy_set_header Host $host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 30s;
+        proxy_buffering off;
+        add_header Cache-Control "no-store" always;
+        add_header Referrer-Policy "no-referrer" always;
+    }
+}

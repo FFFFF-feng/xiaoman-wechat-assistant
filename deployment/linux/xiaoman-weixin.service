@@ -1,0 +1,26 @@
+[Unit]
+Description=Xiaoman isolated OpenClaw Weixin gateway
+After=network-online.target xiaoman-backend.service
+Wants=network-online.target xiaoman-backend.service
+
+[Service]
+Type=simple
+User=xiaoman
+Group=xiaoman
+WorkingDirectory=/srv/xiaoman/runtime
+Environment=OPENCLAW_HOME=/srv/xiaoman/runtime/home
+Environment=OPENCLAW_STATE_DIR=/srv/xiaoman/runtime/state
+Environment=OPENCLAW_CONFIG_PATH=/srv/xiaoman/runtime/state/openclaw.json
+Environment=OPENCLAW_WORKSPACE_DIR=/srv/xiaoman/runtime/workspace
+Environment=TZ=Asia/Shanghai
+ExecStart=/usr/bin/env node /srv/xiaoman/runtime/npm/node_modules/openclaw/openclaw.mjs gateway run --bind loopback --port 18793 --auth token --tailscale off
+Restart=on-failure
+RestartSec=15
+# The pinned gateway allows up to 325 seconds for draining.
+TimeoutStopSec=360
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

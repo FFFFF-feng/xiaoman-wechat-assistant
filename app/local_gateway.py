@@ -12,7 +12,8 @@ from fastapi.responses import Response
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 CALLBACK = "/api/channels/wechat/callback"
-READ_ONLY_PATHS = {"/schedule", "/static/schedule.css", "/static/schedule.js", "/static/paw.svg"}
+READ_ONLY_PATHS = {"/schedule", "/join", "/static/schedule.css", "/static/schedule.js", "/static/paw.svg"}
+JOIN_ACTIONS = {"/api/join/start", "/api/join/code", "/api/join/cancel", "/api/join/revoke"}
 SCHEDULE_ACTION = re.compile(r"/api/schedule/tasks/[1-9][0-9]*/(?:complete|snooze|cancel)")
 
 
@@ -21,6 +22,10 @@ def allowed_path(path: str, method: str, *, schedule_only: bool = False) -> bool
         return not schedule_only and method in {"GET", "POST"}
     if path in READ_ONLY_PATHS or path == "/api/schedule/tasks":
         return method in {"GET", "HEAD"}
+    if path == "/api/join/status":
+        return method == "GET"
+    if path in JOIN_ACTIONS:
+        return method == "POST"
     return method == "POST" and bool(SCHEDULE_ACTION.fullmatch(path))
 
 

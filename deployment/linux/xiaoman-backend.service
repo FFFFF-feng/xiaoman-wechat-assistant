@@ -1,0 +1,22 @@
+[Unit]
+Description=Xiaoman Python backend and single reminder scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=xiaoman
+Group=xiaoman
+WorkingDirectory=/srv/xiaoman/app
+Environment=XIAOMAN_ENV_FILE=/srv/xiaoman/runtime/state/xiaoman/runtime.env
+Environment=TZ=Asia/Shanghai
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/srv/xiaoman/app/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 18083 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=Xiaoman invitation enrollment worker (official QR login)
+After=network-online.target xiaoman-backend.service xiaoman-weixin.service
+Wants=network-online.target xiaoman-backend.service xiaoman-weixin.service
+
+[Service]
+Type=simple
+User=xiaoman
+Group=xiaoman
+WorkingDirectory=/srv/xiaoman/app
+Environment=XIAOMAN_LOCAL_ROOT=/srv/xiaoman/runtime
+Environment=TZ=Asia/Shanghai
+ExecStart=/usr/bin/env node /srv/xiaoman/app/integrations/openclaw-xiaoman/enrollment-worker.mjs
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

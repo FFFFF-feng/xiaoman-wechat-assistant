@@ -94,6 +94,11 @@ def schedule_owner(
     access = db.scalar(select(ScheduleAccess).where(ScheduleAccess.token_hash == token_hash))
     if not access or access.expires_at <= utc_now():
         raise HTTPException(status_code=401, detail="日程链接已过期，请在微信发送“打开日程”获取新链接")
+    if is_clawbot_owner(access.owner_id):
+        from .clawbot_router import load_bindings
+        from .clawbot_identity import clawbot_owner
+        if access.owner_id not in {clawbot_owner(v["account_id"], v["sender_id"]) for v in load_bindings()}:
+            raise HTTPException(401, "微信接入已撤销，日程链接已失效")
     from .wechat_notifications import official_mode, owner_for, recipient_for
     if access.owner_id.startswith("wechat:") and official_mode() and access.owner_id != owner_for(recipient_for(access.owner_id)):
         raise HTTPException(status_code=401, detail="公众号已经切换，请在当前正式号重新打开日程")

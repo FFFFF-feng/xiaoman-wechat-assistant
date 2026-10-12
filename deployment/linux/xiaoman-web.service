@@ -1,0 +1,21 @@
+[Unit]
+Description=Xiaoman invitation and schedule allowlist proxy
+After=network-online.target xiaoman-backend.service
+Wants=xiaoman-backend.service
+
+[Service]
+Type=simple
+User=xiaoman
+Group=xiaoman
+WorkingDirectory=/srv/xiaoman/app
+Environment=XIAOMAN_ENV_FILE=/srv/xiaoman/runtime/state/xiaoman/runtime.env
+Environment=TZ=Asia/Shanghai
+ExecStart=/srv/xiaoman/app/.venv/bin/python -m uvicorn app.schedule_gateway:app --host 127.0.0.1 --port 18084 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

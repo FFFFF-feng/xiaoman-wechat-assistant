@@ -11,7 +11,6 @@ import threading
 import time
 from collections import defaultdict, deque
 from datetime import datetime
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -28,6 +27,7 @@ from .models import ClawbotMessage
 from .schedule_access import issue_schedule_link, public_base_url
 from .schemas import ChatResponse
 from . import clawbot_delivery
+from .clawbot_bindings import load_bindings
 
 router = APIRouter(prefix="/api/internal/clawbot", include_in_schema=False)
 logger = logging.getLogger(__name__)
@@ -70,19 +70,6 @@ def authenticate(authorization: str | None = Header(default=None)) -> None:
         supplied.encode(), token.encode()
     ):
         raise HTTPException(401, "连接器认证失败")
-
-
-def load_bindings() -> list[dict[str, str]]:
-    try:
-        values = json.loads(Path(os.environ["CLAWBOT_BINDINGS_FILE"]).read_text(encoding="utf-8"))
-        if not isinstance(values, list) or not values or not all(
-            isinstance(v, dict) and isinstance(v.get("account_id"), str) and v["account_id"]
-            and isinstance(v.get("sender_id"), str) and v["sender_id"] for v in values
-        ):
-            raise ValueError("invalid bindings")
-        return values
-    except (OSError, ValueError, KeyError):
-        raise HTTPException(503, "微信绑定尚未准备好") from None
 
 
 def wants_schedule(content: str) -> bool:

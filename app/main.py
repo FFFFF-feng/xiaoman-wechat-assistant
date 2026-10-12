@@ -26,6 +26,8 @@ from .parser import now_local
 from .scheduler import scheduler, start_scheduler, stop_scheduler
 from .schedule_router import router as schedule_router
 from .schedule_page import schedule_page_response
+from .clawbot_enrollment import public_router as join_router, admin_router as enrollment_router
+from .join_page import join_page_response
 from .schemas import ChatRequest, ChatResponse, SnoozeRequest, TaskCreate, TaskRead
 from .wechat_router import router as wechat_router
 from .wechat_dialogue_router import router as wechat_dialogue_router
@@ -65,6 +67,8 @@ app.include_router(wechat_router)
 app.include_router(wechat_dialogue_router)
 app.include_router(schedule_router)
 app.include_router(clawbot_router)
+app.include_router(join_router)
+app.include_router(enrollment_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "web"), name="static")
 # 提前建表，确保 reload 或直接导入应用时 API 也能立即使用。
 init_db()
@@ -85,6 +89,11 @@ def home():
 @app.get("/schedule", include_in_schema=False)
 def schedule_page():
     return schedule_page_response()
+
+
+@app.get("/join", include_in_schema=False)
+def join_page():
+    return join_page_response()
 
 
 @app.get("/health")
