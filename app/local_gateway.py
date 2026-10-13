@@ -15,9 +15,20 @@ CALLBACK = "/api/channels/wechat/callback"
 READ_ONLY_PATHS = {"/schedule", "/join", "/static/schedule.css", "/static/schedule.js", "/static/paw.svg"}
 JOIN_ACTIONS = {"/api/join/start", "/api/join/code", "/api/join/cancel", "/api/join/revoke"}
 SCHEDULE_ACTION = re.compile(r"/api/schedule/tasks/[1-9][0-9]*/(?:complete|snooze|cancel)")
+MANAGE_MEMBER = re.compile(r"/api/manage/members/clawbot:[a-f0-9]{64}/(?:label|revoke)")
+MANAGE_INVITATION = re.compile(r"/api/manage/invitations/[1-9][0-9]*/cancel")
 
 
 def allowed_path(path: str, method: str, *, schedule_only: bool = False) -> bool:
+    if schedule_only:
+        if path == "/manage":
+            return method in {"GET", "HEAD"}
+        if path in {"/api/manage/overview", "/api/manage/events"}:
+            return method == "GET"
+        if path == "/api/manage/invitations":
+            return method in {"GET", "POST"}
+        if path in {"/api/manage/login", "/api/manage/logout"} or MANAGE_MEMBER.fullmatch(path) or MANAGE_INVITATION.fullmatch(path):
+            return method == "POST"
     if path == CALLBACK:
         return not schedule_only and method in {"GET", "POST"}
     if path in READ_ONLY_PATHS or path == "/api/schedule/tasks":
@@ -63,7 +74,7 @@ def create_gateway(upstream_port: int = 18082, *, transport=None, schedule_only:
 
         # 不接受客户端提供的转发头；不转发 Cookie，不改变签名查询参数。
         headers = {"accept-encoding": "identity", "x-forwarded-proto": "https"}
-        for name in ("content-type", "authorization"):
+        for name in ("content-type", "authorization", "origin"):
             if value := request.headers.get(name):
                 headers[name] = value
         host = request.headers.get("host", "")

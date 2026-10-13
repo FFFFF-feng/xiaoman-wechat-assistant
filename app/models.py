@@ -133,6 +133,30 @@ class ClawbotInvitation(Base):
     owner_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
+class ClawbotMemberProfile(Base):
+    __tablename__ = "clawbot_member_profiles"
+    owner_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    label: Mapped[str] = mapped_column(String(60), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class ClawbotAdminIssue(Base):
+    """Durable issuance deduplication, never the raw invitation token."""
+    __tablename__ = "clawbot_admin_issues"
+    request_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    invitation_id: Mapped[int] = mapped_column(ForeignKey("clawbot_invitations.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class ClawbotAdminEvent(Base):
+    __tablename__ = "clawbot_admin_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    target: Mapped[str] = mapped_column(String(200), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class WechatUser(Base):
     """按 AppID 隔离用户及客服消息窗口，OpenID 不跨账号迁移。"""
     __tablename__ = "wechat_users"

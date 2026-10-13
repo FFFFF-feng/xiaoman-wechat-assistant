@@ -29,6 +29,8 @@ from .schedule_page import schedule_page_response
 from .clawbot_enrollment import public_router as join_router, admin_router as enrollment_router
 from .join_page import join_page_response
 from .clawbot_voice import router as voice_router
+from .manage_router import router as manage_router
+from .manage_page import manage_page_response
 from .schemas import ChatRequest, ChatResponse, SnoozeRequest, TaskCreate, TaskRead
 from .wechat_router import router as wechat_router
 from .wechat_dialogue_router import router as wechat_dialogue_router
@@ -71,9 +73,22 @@ app.include_router(clawbot_router)
 app.include_router(join_router)
 app.include_router(enrollment_router)
 app.include_router(voice_router)
+app.include_router(manage_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "web"), name="static")
 # 提前建表，确保 reload 或直接导入应用时 API 也能立即使用。
 init_db()
+
+
+@app.middleware("http")
+async def private_management_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path == "/manage" or request.url.path.startswith("/api/manage/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        if request.url.path.startswith("/api/manage/"):
+            response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+    return response
 
 
 def _task_or_404(db: Session, task_id: int) -> Task:
@@ -96,6 +111,11 @@ def schedule_page():
 @app.get("/join", include_in_schema=False)
 def join_page():
     return join_page_response()
+
+
+@app.get("/manage", include_in_schema=False)
+def manage_page():
+    return manage_page_response()
 
 
 @app.get("/health")
