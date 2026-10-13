@@ -29,6 +29,7 @@ from .schedule_page import schedule_page_response
 from .clawbot_enrollment import public_router as join_router, admin_router as enrollment_router
 from .join_page import join_page_response
 from .clawbot_voice import router as voice_router
+from .clawbot_materials import router as materials_router
 from .manage_router import router as manage_router
 from .manage_page import manage_page_response
 from .schemas import ChatRequest, ChatResponse, SnoozeRequest, TaskCreate, TaskRead
@@ -73,6 +74,7 @@ app.include_router(clawbot_router)
 app.include_router(join_router)
 app.include_router(enrollment_router)
 app.include_router(voice_router)
+app.include_router(materials_router)
 app.include_router(manage_router)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "web"), name="static")
 # 提前建表，确保 reload 或直接导入应用时 API 也能立即使用。

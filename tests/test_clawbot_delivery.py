@@ -29,7 +29,9 @@ class ClawbotDeliveryTests(TestCase):
     def queue(self, seconds=5):
         response = self.send()
         self.assertEqual(response.status_code, 200)
-        self.assertIn("保持电脑", response.json()["reply"])
+        self.assertIn("记下啦", response.json()["reply"])
+        self.assertNotIn("保持", response.json()["reply"])
+        self.assertLess(len(response.json()["reply"]), 60)
         with self.sessions() as db:
             db.scalar(select(Task)).due_at = clawbot_delivery.local_now() - timedelta(seconds=seconds)
             db.commit()

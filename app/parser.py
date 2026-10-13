@@ -180,7 +180,7 @@ def parse_time_followup(
     if not previous_user_text:
         return None
     # 上一条若已成功创建，不能因用户再回“今天”而创建重复任务。
-    if previous_assistant_text and previous_assistant_text.startswith(("收到，我会在 ", "已记录：")):
+    if previous_assistant_text and previous_assistant_text.startswith(("收到，我会在 ", "已记录：", "记下啦，")):
         return None
     # 新消息已经带有“提醒/创建”等完整动作词时，应视为一条新的请求。
     # 不能把它误当成上一条日程的补充，否则会擅自继承上一轮的日期。

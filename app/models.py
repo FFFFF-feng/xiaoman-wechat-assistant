@@ -85,6 +85,15 @@ class ClawbotMessage(Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class ClawbotImportSession(Base):
+    """Explicit chat-record collection mode; expires instead of becoming task input."""
+    __tablename__ = "clawbot_import_sessions"
+    owner_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class ClawbotVoiceMessage(Base):
     """Voice receipt and transcript only; never persist raw audio or provider credentials."""
     __tablename__ = "clawbot_voice_messages"

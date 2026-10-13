@@ -28,6 +28,8 @@ from .schedule_access import issue_schedule_link, public_base_url
 from .schemas import ChatResponse
 from . import clawbot_delivery
 from .clawbot_bindings import load_bindings
+from . import materials
+from . import record_import
 
 router = APIRouter(prefix="/api/internal/clawbot", include_in_schema=False)
 logger = logging.getLogger(__name__)
@@ -140,10 +142,27 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
             raise HTTPException(409, "消息正在处理") from None
         record_id = record.id
         try:
-            if wants_branding(payload.content):
+            imported = record_import.collect(db, owner, payload.content)
+            if imported is not None:
+                if not any(v["account_id"] == payload.account_id and v["sender_id"] == payload.sender_id for v in load_bindings()):
+                    raise HTTPException(403, "接入已撤销")
+                response = imported
+            elif wants_branding(payload.content):
                 response = branding_reply()
             elif wants_schedule(payload.content):
                 response = schedule_reply(db, owner, base_url)
+            elif materials.wants_record_import(payload.content):
+                if os.getenv("CLAWBOT_MATERIALS_ENABLED", "true").lower() != "true":
+                    response = ChatResponse(action="material_error", reply="资料识别已停用，请先发普通文字。")
+                else:
+                    try:
+                        reply = materials.record_summary(payload.content)
+                        # Recheck authorization after the external model call.
+                        if not any(v["account_id"] == payload.account_id and v["sender_id"] == payload.sender_id for v in load_bindings()):
+                            raise HTTPException(403, "接入已撤销")
+                        response = ChatResponse(action="material_summary", parser="model", reply=reply + materials.FOOTER)
+                    except materials.MaterialError as error:
+                        response = ChatResponse(action="material_error", reply=str(error) + "；未创建提醒。")
             else:
                 response = handle_chat_message(payload.content, db, conversation_id=owner)
             saved = response.model_copy(update={"reply": "[日程链接已发送；授权令牌未保存]"}) if wants_schedule(payload.content) and base_url else response

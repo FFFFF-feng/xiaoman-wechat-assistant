@@ -60,7 +60,7 @@ test('exception, media and invalid backend fail closed', async () => {
   assert.equal((await handler({ content: '你好' }, ctx)).handled, true);
   assert.equal(calls.length, 0);
   const normal = setup();
-  assert.match((await normal.handler({ content: '照片', media: [{ kind: 'image' }] }, ctx)).text, /只接入文字/);
+  assert.match((await normal.handler({ content: '照片', media: [{ kind: 'image' }] }, ctx)).text, /附件不可用/);
   assert.equal(normal.calls.length, 0);
   assert.equal((await createBridgeHandler({ ...config, backendUrl: 'https://example.com' })({ content: '你好' }, ctx)).handled, true);
 });

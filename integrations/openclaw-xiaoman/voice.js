@@ -23,7 +23,7 @@ export function createMediaStore({now = Date.now} = {}) {
       if (entries.size >= 500) entries.delete(entries.keys().next().value);
       if (!event.media?.length && !event.originalMedia?.length && !event.mediaStagingPending) return;
       entries.set(keyFor(account, sender, message), {at:now(), content:event.content,
-        pending:!!event.mediaStagingPending, quoted:!!event.replyToIsQuote,
+        pending:!!event.mediaStagingPending || (event.media?.length ?? 0) > 3, quoted:!!event.replyToIsQuote,
         media:(event.media ?? []).slice(0, 3).map(item => ({path:item.path, kind:item.kind,
           contentType:item.contentType, url:item.url}))});
     },
@@ -35,6 +35,16 @@ export async function readVoiceData(config, fact) {
   if (fact?.contentType !== 'audio/wav' || (fact.kind && fact.kind !== 'audio') ||
       typeof fact.path !== 'string' || !path.isAbsolute(fact.path) || fact.url && fact.url !== fact.path) {
     throw new Error('unsupported-voice');
+  }
+  const data = await readInboundData(config, fact, MAX_AUDIO_BYTES);
+  if (data.length < 44 || data.toString('ascii', 0, 4) !== 'RIFF' ||
+      data.toString('ascii', 8, 12) !== 'WAVE') throw new Error('invalid-voice');
+  return data.toString('base64');
+}
+
+export async function readInboundData(config, fact, maxBytes) {
+  if (typeof fact?.path !== 'string' || !path.isAbsolute(fact.path) || fact.url && fact.url !== fact.path) {
+    throw new Error('invalid-media-path');
   }
   // Pinned Weixin 2.4.10 saves decrypted media under OPENCLAW_STATE_DIR/media/inbound.
   // The binding file is under that same isolated state's xiaoman directory.
@@ -49,7 +59,8 @@ export async function readVoiceData(config, fact) {
   const file = await fs.open(fileReal, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
     const stat = await file.stat();
-    if (!stat.isFile() || stat.size < 44 || stat.size > MAX_AUDIO_BYTES) throw new Error('invalid-voice-size');
+    if (!stat.isFile() || stat.size < 1 || stat.size > maxBytes ||
+        stat.dev !== givenStat.dev || stat.ino !== givenStat.ino) throw new Error('invalid-media-size');
     const data = Buffer.alloc(stat.size);
     let offset = 0;
     while (offset < data.length) {
@@ -57,8 +68,8 @@ export async function readVoiceData(config, fact) {
       if (!bytesRead) throw new Error('incomplete-voice');
       offset += bytesRead;
     }
-    if ((await file.stat()).size !== stat.size || data.toString('ascii', 0, 4) !== 'RIFF' ||
-        data.toString('ascii', 8, 12) !== 'WAVE') throw new Error('invalid-voice');
-    return data.toString('base64');
+    const after = await file.stat();
+    if (after.size !== stat.size || after.mtimeMs !== stat.mtimeMs) throw new Error('media-changed');
+    return data;
   } finally {await file.close();}
 }

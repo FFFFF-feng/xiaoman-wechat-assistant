@@ -106,3 +106,24 @@ class RuntimeSetupTests(TestCase):
         with self.assertRaises(ValueError):
             setup.configure_features(self.root)
         self.assertEqual(before, config_path.read_bytes())
+
+    def test_text_batching_only_changes_opt_in_flag_preserving_bindings(self):
+        self.initialize(); self.install_fixture(); setup.activate_runtime(self.root)
+        config_path = self.root / "state/openclaw.json"
+        before = json.loads(config_path.read_text(encoding="utf-8"))
+        bindings = (self.root / "state/xiaoman/bindings.json").read_bytes()
+        backup = setup.configure_text_batching(self.root)
+        after = json.loads(config_path.read_text(encoding="utf-8"))
+        self.assertTrue(after['plugins']['entries']['xiaoman-bridge']['config'].pop('mergeTextMessages'))
+        self.assertEqual(after, before)
+        self.assertEqual(bindings, (self.root / "state/xiaoman/bindings.json").read_bytes())
+        self.assertEqual(json.loads((backup / 'openclaw.json').read_text(encoding='utf-8')), before)
+        setup.configure_text_batching(self.root, enabled=False)
+        self.assertFalse(json.loads(config_path.read_text(encoding='utf-8'))['plugins']['entries']['xiaoman-bridge']['config']['mergeTextMessages'])
+
+    def test_text_batching_refuses_an_unowned_or_conflicting_instance(self):
+        self.initialize()
+        config_path = self.root / "state/openclaw.json"
+        before = config_path.read_bytes()
+        with self.assertRaises(ValueError): setup.configure_text_batching(self.root)
+        self.assertEqual(config_path.read_bytes(), before)

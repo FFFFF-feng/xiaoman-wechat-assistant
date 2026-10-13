@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import json
 from datetime import datetime, time, timedelta
 
 from sqlalchemy import desc, select
@@ -64,6 +65,10 @@ def _recent_chat_history(db: Session, conversation_id: str | None = None) -> lis
             .order_by(desc(ClawbotMessage.created_at), desc(ClawbotMessage.id))
             .limit(CHAT_HISTORY_LIMIT)
         ).all()
+        # Imported source statements must not become a pending reminder command
+        # when a later ordinary message merely supplies a time.
+        rows = [row for row in rows if not row.response_json or
+                json.loads(row.response_json).get("action") not in {"material_summary", "material_error", "import_collect"}]
         return [item for row in reversed(rows) for item in (
             {"role": "user", "content": row.content},
             {"role": "assistant", "content": row.reply_content or ""},
@@ -261,6 +266,15 @@ def _reconcile_commands(
     return model_command or rule_command
 
 
+def _friendly_due(due_at: datetime) -> str:
+    today = now_local().date()
+    offset = (due_at.date() - today).days
+    day = {0: "今天", 1: "明天", 2: "后天"}.get(offset)
+    if day is None:
+        day = due_at.strftime("%Y年%m月%d日" if due_at.year != today.year else "%m月%d日")
+    return f"{day} {due_at:%H:%M}"
+
+
 def _execute_command(
     command: ParsedCommand,
     db: Session,
@@ -296,10 +310,8 @@ def _execute_command(
         db.commit()
         db.refresh(task)
         return ChatResponse(
-            reply=(f"已记录：{task.title}，时间 {task.due_at.strftime('%m月%d日 %H:%M')}。"
-                   + ("\n到时会尝试通过微信提醒，请保持电脑、小满和微信网关运行并联网。" if clawbot_reminders_enabled()
-                      else "\n微信插件的主动提醒尚未接通，暂不会自动发送。")) if is_clawbot_owner(owner_id)
-                  else f"收到，我会在 {task.due_at.strftime('%m月%d日 %H:%M')} 提醒你：{task.title}。",
+            reply=f"记下啦，{_friendly_due(task.due_at)}提醒你{task.title}。"
+                  + ("自动提醒暂不可用。" if is_clawbot_owner(owner_id) and not clawbot_reminders_enabled() else ""),
             action="create",
             task=task,
         )
@@ -342,10 +354,9 @@ def _execute_command(
         task.reminder_channel = channel
         task.notification_template_id = template_id
         task.status = "snoozed"
-        reply = f"知道啦，「{task.title}」延后到 {task.due_at.strftime('%m月%d日 %H:%M')}。"
-        if is_clawbot_owner(owner_id):
-            reply += ("\n到时会尝试通过微信提醒，请保持本机服务运行并联网。" if clawbot_reminders_enabled()
-                      else "\n微信插件的主动提醒尚未接通，暂不会自动发送。")
+        reply = f"好，「{task.title}」改到{_friendly_due(task.due_at)}。"
+        if is_clawbot_owner(owner_id) and not clawbot_reminders_enabled():
+            reply += "自动提醒暂不可用。"
     else:
         reply = "已处理。"
     task.updated_at = datetime.now()
@@ -354,6 +365,29 @@ def _execute_command(
     db.commit()
     db.refresh(task)
     return ChatResponse(reply=reply, action=command.action, task=task)
+
+
+def _fragment_safety_guard(text: str) -> ParsedCommand | None:
+    """A fragmented request must not execute an early instruction later withdrawn.
+
+    The deterministic parser supports one operation. Ambiguous multiple task/time
+    revisions are confirmed rather than silently executing the first fragment.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) < 2 or not re.search(CREATE_PATTERN, text):
+        return None
+    for line in lines:
+        guarded = reminder_intent_guard(line)
+        if guarded:
+            return guarded
+        plain = re.sub(r"[，,。.!！?？\s]", "", line)
+        if re.fullmatch(r"(?:算了)?(?:算了|取消吧|不用了|不需要了|先别|先别(?:建|创建|设置|安排)(?:了)?)", plain):
+            return ParsedCommand("clarify", confidence="low", message="好，这次先不创建提醒。")
+    if sum(bool(re.search(CREATE_PATTERN, line)) for line in lines) > 1:
+        return ParsedCommand("clarify", confidence="low", message="我收到几个提醒要求，先不创建。请确认要记哪件事、什么时间。")
+    if sum(has_time_expression(line) for line in lines) > 1 or sum(has_explicit_date(line) for line in lines) > 1:
+        return ParsedCommand("clarify", confidence="low", message="你提到了不同的时间，先不创建。最后确定是哪天、几点呢？")
+    return None
 
 
 def handle_chat_message(
@@ -373,9 +407,10 @@ def handle_chat_message(
         _latest_user_text(history),
         _latest_assistant_text(history),
     )
+    guard = _fragment_safety_guard(normalized)
     rule_command = parse_command(normalized)
-    model_command = parse_with_model(normalized, history=history) if use_model else None
-    command = _reconcile_commands(normalized, model_command, rule_command, followup_command)
+    model_command = parse_with_model(normalized, history=history) if use_model and guard is None else None
+    command = guard or _reconcile_commands(normalized, model_command, rule_command, followup_command)
     if use_model and model_command is None and command.action == "unknown":
         command = ParsedCommand(
             action="chat",

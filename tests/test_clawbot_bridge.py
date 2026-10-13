@@ -74,7 +74,7 @@ class ClawbotBridgeTests(TestCase):
     def test_task_owner_dedup_and_no_global_chat(self):
         first = self.send()
         self.assertEqual(first.status_code, 200, first.text)
-        self.assertIn("暂不会自动发送", first.json()["reply"])
+        self.assertIn("自动提醒暂不可用", first.json()["reply"])
         self.assertEqual(self.send().json(), first.json())
         self.assertEqual(self.send("两分钟后提醒我吃饭").status_code, 409)
         with self.sessions() as db:
