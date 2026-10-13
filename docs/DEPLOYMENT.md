@@ -1,6 +1,6 @@
 # Linux 部署与运维
 
-更新：2026-10-12。当前主路线为微信ClawBot，不修改公司已有公众号/售后服务号。用户已反馈多位体验者能正常使用功能；Linux配置已准备，**尚未在公司服务器完成运行验收**。本机双击脚本不能直接搬到Linux使用。
+更新：2026-10-13。当前主路线为微信ClawBot，不修改公司已有公众号/售后服务号。已在公司Linux完成独立部署、已有用户迁移及两位手机基础验收，详见[实际验收记录](Linux部署验收_2026-10-13.md)；隔夜、断网/重启和恢复演练仍待完成。本机双击脚本不能直接搬到Linux使用，同一授权不能两地并跑。
 
 ## 部署目标与边界
 
@@ -26,7 +26,7 @@
 | 新源码目录 | `/srv/xiaoman/app` |
 | 私有运行目录 | `/srv/xiaoman/runtime`，不在Git中 |
 | 固定HTTPS | `https://schedule.example.com`，必须替换为实际域名 |
-| Python | 3.12/3.13；本机3.13通过，Linux版本须实测 |
+| Python | 3.12/3.13；本机3.13及本次Linux3.12回归通过，新环境仍须实测 |
 | Node / OpenClaw / 微信插件 | 24.21.0 / 2026.10.1 / 2.4.10 |
 
 先读第7节选择全新部署或迁移。**不在旧项目目录原地覆盖**，不覆盖旧 `.env` 或数据库。先核对内存、磁盘、版本和端口是否空闲，Node须在systemd的PATH中可用。
@@ -116,7 +116,7 @@ node /srv/xiaoman/runtime/npm/node_modules/openclaw/openclaw.mjs config validate
 
 `activate`保留官方插件安装记录、检查固定版本，不重新生成密钥或绑定；再次执行不会覆盖已激活配置。本地身份并不是微信端联系人资料，见 [名称与头像](BRANDING.md)。小满插件通过源码绝对路径加载，不随意移动目录；升级代码后重启微信网关。
 
-安装命令必须正常完成再继续。若超时，先检查该独立目录的安装进程和官方安装清单，不盲目重复安装或删除目录；仅有package.json不代表完整安装成功。本机临时安装探针曾超时，后续安装产物激活及官方配置校验通过，Linux完整安装/常驻启动仍待实测。
+安装命令必须正常完成再继续。若超时，先检查该独立目录的安装进程和官方安装清单，不盲目重复安装或删除目录；仅有package.json不代表完整安装成功。本机临时安装探针曾超时；本次Linux官方插件安装正常完成、配置校验及服务启动检查通过，长期常驻和恢复仍需验收。
 
 多人由单个 `enrollment-worker.mjs` 串行调用官方CLI登录，默认10个绑定。初始化配置启用 `CLAWBOT_ENROLLMENT_ENABLED=true`，保持 `per-account-channel-peer` 会话隔离、关闭控制台与Agent工具。未开放匿名注册。
 
@@ -136,7 +136,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now xiaoman-backend xiaoman-web xiaoman-weixin xiaoman-enrollment
 ```
 
-Python仅一个worker，不用 `--reload` 或多副本。systemd的active不等于微信已连接；Gateway首次冷启动可能需要几分钟，不要重复启动或重扫。网关停止也可能需要数分钟排空，模板已设置360秒停止预算。
+若公司全局Node版本较旧，不原地升级影响其他业务。可在专用目录安装经官方校验的Node24.21.0，并为`xiaoman-weixin`、`xiaoman-enrollment`两个服务添加独立drop-in；以实际安装路径为准：
+
+```ini
+[Service]
+Environment=PATH=/srv/xiaoman/tools/node-v24.21.0-linux-x64/bin:/usr/local/bin:/usr/bin:/bin
+```
+
+安装drop-in后再`daemon-reload`和启动服务，避免`/usr/bin/env node`仍找到公司旧Node。Python仅一个worker，不用 `--reload` 或多副本。systemd的active不等于微信已连接；Gateway首次冷启动可能需要几分钟，不要重复启动或重扫。网关停止也可能需要数分钟排空，模板已设置360秒停止预算。
 
 ```bash
 # 检查
