@@ -105,3 +105,28 @@ test('host saved filename preserves exported XML format after generic MIME renam
   const result=await readMaterialData(f.config,{path:saved,kind:'document',contentType:'text/plain'});
   assert.equal(result.filename,'聊天.xml');
 });
+
+test('Tencent image wildcard reaches the image reader without guessing from the filename', async t => {
+  const f=await fixture(t);
+  for (const name of ['photo.jpg','screenshot.png','photo.webp','host-image.bin']) {
+    const saved=path.join(f.inbound,name);await fs.writeFile(saved,'fixture');
+    const result=await readMaterialData(f.config,{path:saved,kind:'image',contentType:'image/*'});
+    assert.equal(result.kind,'image');
+    assert.equal(result.data_base64,Buffer.from('fixture').toString('base64'));
+    await assert.rejects(readMaterialData(f.config,{path:saved,kind:'document',contentType:'image/*'}));
+    await assert.rejects(readMaterialData(f.config,{path:saved,kind:'image',contentType:'application/octet-stream'}));
+  }
+});
+
+test('real local wildcard attachment passes trusted hook, binding and material dispatch', async t => {
+  const f=await fixture(t), saved=path.join(f.inbound,'phone-screenshot.jpg');
+  await fs.writeFile(saved,'fixture');
+  const e={...event,media:[{path:saved,kind:'image',contentType:'image/*'}]};
+  const store=createMediaStore();store.observe(e,ctx);const calls=[];
+  const handler=createBridgeHandler({...config,...f.config},{mediaStore:store,
+    readFile:async file=>file==='token'?'a'.repeat(64):JSON.stringify([{account_id:'bot',sender_id:'Alice'}]),
+    fetch:async (url,options)=>{calls.push({url,body:JSON.parse(options.body)});return Response.json({reply:'识别结果'});}});
+  assert.equal((await handler({content:'[图片]'},ctx)).text,'识别结果');
+  assert.equal(calls.length,1);assert.match(calls[0].url,/\/materials$/);
+  assert.equal(calls[0].body.kind,'image');assert.equal(calls[0].body.filename,'phone-screenshot.jpg');
+});

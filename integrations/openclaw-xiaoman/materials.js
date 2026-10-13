@@ -2,7 +2,10 @@ import path from 'node:path';
 import { readInboundData } from './voice.js';
 
 export const MAX_MATERIAL_BYTES = 10 * 1024 * 1024;
-const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+// Tencent Weixin 2.4.10 reports decrypted images as image/*, even when the
+// saved file is JPEG. The Python reader verifies actual JPEG/PNG/WebP bytes;
+// this trusted transport hint only selects that reader, not format approval.
+const imageTypes = new Set(['image/*', 'image/jpeg', 'image/png', 'image/webp']);
 const formats = new Set(['.txt', '.md', '.csv', '.json', '.xml', '.pdf', '.docx', '.xlsx']);
 
 export async function readMaterialData(config, fact) {
