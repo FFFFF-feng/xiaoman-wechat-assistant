@@ -188,6 +188,8 @@ class MaterialBridgeTests(TestCase):
             result = self.send()
             self.assertEqual(result.status_code,200,result.text)
             self.assertEqual(result.json()['action'],'material_summary')
+            self.assertTrue(result.json()['reply'].startswith('文件阅读结果：\n'))
+            self.assertTrue(result.json()['reply'].endswith(materials.FOOTER))
             self.assertEqual(self.send().json(),result.json())
             self.assertEqual(self.send(data='不同'.encode()).status_code,409)
             self.assertEqual(self.send(sender='Bob').status_code,200)
@@ -200,11 +202,16 @@ class MaterialBridgeTests(TestCase):
             self.assertEqual(len({r.owner_id for r in rows}),2)
 
     def test_image_endpoint_and_invalid_image(self):
-        with patch.object(materials, 'summarize', return_value='图片里的文字') as provider:
-            self.assertEqual(self.send(kind='image',filename='image.png',data=image_data()).status_code,200)
+        reply='这只小猫趴在草地上，耳朵尖尖的，看着很放松。'
+        with patch.object(materials, 'summarize', return_value=reply) as provider:
+            result=self.send(kind='image',filename='image.png',data=image_data())
+            self.assertEqual(result.status_code,200)
+            self.assertEqual(result.json()['reply'],reply)
+            self.assertEqual(self.send(kind='image',filename='image.png',data=image_data()).json(),result.json())
             self.assertTrue(provider.call_args.kwargs['image'].startswith('data:image/jpeg;base64,'))
             self.assertEqual(self.send(mid='bad',kind='image',data=b'fake').status_code,422)
             self.assertEqual(provider.call_count,1)
+        self.assertEqual(self.count_tasks(),0)
 
     def test_model_failure_not_retried_for_same_message(self):
         with patch.object(materials, 'summarize', side_effect=materials.MaterialError('识别失败')) as provider:

@@ -79,7 +79,7 @@ def process_material(payload, db):
             reply = materials.summarize(text=text, image=image)
             check_binding(payload)  # Revocation can occur while the model is reading.
             result = ChatResponse(action="material_summary", parser="model",
-                reply=f"{'图片识别' if image else '文件阅读'}结果：\n{reply}" + materials.FOOTER)
+                reply=reply if image else f"文件阅读结果：\n{reply}" + materials.FOOTER)
             row.reply_content, row.response_json = result.reply, result.model_dump_json()
             row.status, row.processed_at = "processed", datetime.now()
             db.commit()
