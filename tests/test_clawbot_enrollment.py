@@ -14,7 +14,7 @@ from app.clawbot_bindings import load_bindings
 from app.clawbot_identity import clawbot_owner
 from app.join_page import join_page_response
 from app.local_gateway import allowed_path
-from app.models import ClawbotInvitation, ClawbotDelivery, Task, Reminder, ScheduleAccess
+from app.models import ClawbotInvitation, ClawbotDelivery, ClawbotWelcome, Task, Reminder, ScheduleAccess
 from app.schedule_access import issue_schedule_link, utc_now
 
 
@@ -86,6 +86,88 @@ class EnrollmentTests(TestCase):
         self.assertEqual(view["state"], "connected")
         self.assertNotIn("account_id", view)
         self.assertNotIn("lease", view)
+        with self.sessions() as db:
+            self.assertEqual(len(db.scalars(select(ClawbotWelcome)).all()), 1)
+            self.assertEqual(db.scalar(select(ClawbotWelcome)).status, "waiting")
+
+    def welcome(self):
+        with patch.dict('os.environ', {'PUBLIC_BASE_URL': 'https://example.com'}):
+            return self.post('/api/internal/clawbot/welcome/claim').json()['delivery']
+
+    def new_welcome(self):
+        job, _, _ = self.started()
+        self.complete(job)
+        self.send(account='bot-two', user='Bob', content='查询待办')
+        return self.welcome()
+
+    def test_welcome_waits_for_first_message_then_targets_only_new_user(self):
+        job, _, _ = self.started(); self.complete(job)
+        self.assertIsNone(self.welcome())
+        self.send(content='查询待办')  # Original user: no unsolicited welcome.
+        self.assertIsNone(self.welcome())
+        self.assertEqual(self.send(account='bot-two', user='Bob', content='查询待办').status_code, 200)
+        item = self.welcome()
+        self.assertEqual((item['account_id'], item['sender_id']), ('bot-two', 'Bob'))
+        self.assertIn('[点击查看小满使用指南](https://example.com/guide)', item['text'])
+        self.assertIsNone(self.welcome())
+        with self.sessions() as db:
+            self.assertEqual(db.scalars(select(Task)).all(), [])
+            self.assertEqual(db.scalars(select(Reminder)).all(), [])
+
+    def test_welcome_requires_reachable_origin_authentication_and_private_routes(self):
+        job, _, _ = self.started(); self.complete(job)
+        self.send(account='bot-two', user='Bob', content='查询待办')
+        self.assertIsNone(self.post('/api/internal/clawbot/welcome/claim').json()['delivery'])
+        for path in ('/api/internal/clawbot/welcome/claim', '/api/internal/clawbot/welcome/1/start'):
+            self.assertFalse(allowed_path(path, 'POST', schedule_only=True))
+            self.assertEqual(self.client.post(path, json={}).status_code, 401)
+        self.assertIsNotNone(self.welcome())
+
+    def test_welcome_accepted_is_durable_and_does_not_repeat(self):
+        item = self.new_welcome(); prefix = f"/api/internal/clawbot/welcome/{item['id']}"
+        lease = {'claim_token': item['claim_token']}
+        self.assertEqual(self.post(prefix+'/start', lease).status_code, 200)
+        self.assertEqual(self.post(prefix+'/start', lease).status_code, 409)
+        receipt = {**lease, 'outcome':'accepted', 'message_id':'native-welcome'}
+        self.assertEqual(self.post(prefix+'/result', receipt).status_code, 200)
+        self.assertEqual(self.post(prefix+'/result', receipt).status_code, 200)
+        self.send(account='bot-two', user='Bob', mid='next', content='查询待办')
+        self.assertIsNone(self.welcome())
+        with self.sessions() as db:
+            self.assertEqual(db.get(ClawbotWelcome, item['id']).external_message_id, 'native-welcome')
+
+    def test_welcome_revoke_before_send_and_wrong_lease_blocked(self):
+        item = self.new_welcome(); prefix = f"/api/internal/clawbot/welcome/{item['id']}"
+        self.assertEqual(self.post(prefix+'/start', {'claim_token':'b'*64}).status_code, 409)
+        owner = clawbot_owner('bot-two', 'Bob')
+        self.post('/api/internal/clawbot/enrollment/members/'+owner+'/revoke')
+        self.assertEqual(self.post(prefix+'/start', {'claim_token': item['claim_token']}).status_code, 409)
+        self.assertIsNone(self.welcome())
+
+    def test_welcome_expired_claim_recovers_but_uncertain_send_never_resends(self):
+        item = self.new_welcome()
+        with self.sessions() as db:
+            db.get(ClawbotWelcome, item['id']).claimed_at = utc_now()-timedelta(seconds=60)
+            db.commit()
+        renewed = self.welcome()
+        self.assertNotEqual(renewed['claim_token'], item['claim_token'])
+        prefix = f"/api/internal/clawbot/welcome/{item['id']}"
+        self.post(prefix+'/start', {'claim_token': renewed['claim_token']})
+        with self.sessions() as db:
+            db.get(ClawbotWelcome, item['id']).started_at = utc_now()-timedelta(seconds=150)
+            db.commit()
+        self.assertIsNone(self.welcome())
+        with self.sessions() as db:
+            self.assertEqual(db.get(ClawbotWelcome, item['id']).status, 'unknown')
+
+    def test_guide_command_can_be_retrieved_without_creating_tasks(self):
+        with patch.dict('os.environ', {'PUBLIC_BASE_URL':'https://example.com'}):
+            result = self.send(content='使用指南')
+        self.assertEqual(result.status_code, 200)
+        self.assertIn('https://example.com/guide', result.json()['reply'])
+        self.assertIn('不会自动修改微信资料', result.json()['reply'])
+        with self.sessions() as db:
+            self.assertEqual(db.scalars(select(Task)).all(), [])
 
     def test_start_repeat_claim_serial_and_other_invite_cannot_view_qr(self):
         first, headers, _ = self.started()

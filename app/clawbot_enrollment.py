@@ -19,6 +19,7 @@ from .clawbot_router import authenticate
 from .database import get_db
 from .models import ClawbotInvitation, ScheduleAccess
 from .schedule_access import utc_now
+from .clawbot_welcome import register as register_welcome
 
 public_router = APIRouter(prefix="/api/join", include_in_schema=False)
 admin_router = APIRouter(prefix="/api/internal/clawbot/enrollment", include_in_schema=False,
@@ -274,6 +275,7 @@ def worker_complete(job_id: int, payload: Complete, db: Session = Depends(get_db
             raise HTTPException(409, "体验名额已满")
         save_bindings(values + [{"account_id": payload.account_id, "sender_id": payload.sender_id}])
         row.owner_id, row.state, row.qr_image = owner, "connected", None
+        register_welcome(db, owner)
         _codes.pop(row.id, None)
         try:
             db.commit()

@@ -30,6 +30,7 @@ from . import clawbot_delivery
 from .clawbot_bindings import load_bindings
 from . import materials
 from . import record_import
+from . import clawbot_welcome
 
 router = APIRouter(prefix="/api/internal/clawbot", include_in_schema=False)
 logger = logging.getLogger(__name__)
@@ -83,14 +84,12 @@ def wants_schedule(content: str) -> bool:
 
 def wants_branding(content: str) -> bool:
     return re.sub(r"[\s，,。.!！?？]", "", content) in {
-        "小满资料", "初始化小满", "设置小满头像", "设置小满昵称", "设置小满名字"}
+        "小满资料", "初始化小满", "设置小满头像", "设置小满昵称", "设置小满名字",
+        "使用指南", "新手指南", "小满指南", "功能介绍", "怎么使用小满"}
 
 
-def branding_reply() -> ChatResponse:
-    voice = "你也可以发语音，说出待办或提醒；我会回显识别文字。" if os.getenv("ASR_ENABLED", "false").lower() == "true" else "当前音频识别未启用，请先发文字。"
-    return ChatResponse(action="chat", reply="我是小满，网页和项目后台使用小满名称与猫爪图标。\n"
-                        "微信中的ClawBot联系人名称和头像由微信客户端控制，当前插件没有修改接口，不能替你自动改名或换头像。\n"
-                        "我可以聊天、记录提醒、查询待办和打开日程。" + voice)
+def branding_reply(base_url: str | None = None) -> ChatResponse:
+    return ChatResponse(action="chat", reply=clawbot_welcome.guide_reply(base_url))
 
 
 def schedule_reply(db: Session, owner: str, base_url: str | None) -> ChatResponse:
@@ -112,6 +111,8 @@ def _cached(record: ClawbotMessage, payload: BridgeRequest, db: Session, base_ur
     # 授权链接不存历史；重复投递可重新签发同一用户的短期链接。
     if wants_schedule(payload.content):
         return schedule_reply(db, record.owner_id, base_url)
+    if wants_branding(payload.content):
+        return branding_reply(base_url)
     return ChatResponse.model_validate_json(record.response_json)
 
 
@@ -120,6 +121,7 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
     message_key = hashlib.sha256(f"{payload.account_id}\0{payload.sender_id}\0{payload.message_id}".encode()).hexdigest()
     # 单进程按用户串行，数据库唯一键同时保证重启/重复投递不会重复执行任务。
     with _locks[int(owner[-8:], 16) % len(_locks)]:
+        clawbot_welcome.activate(db, owner)
         existing = db.scalar(select(ClawbotMessage).where(ClawbotMessage.external_message_id == message_key))
         if existing:
             return _cached(existing, payload, db, base_url)
@@ -148,7 +150,7 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
                     raise HTTPException(403, "接入已撤销")
                 response = imported
             elif wants_branding(payload.content):
-                response = branding_reply()
+                response = branding_reply(base_url)
             elif wants_schedule(payload.content):
                 response = schedule_reply(db, owner, base_url)
             elif materials.wants_record_import(payload.content):
@@ -194,6 +196,24 @@ def health():
 @router.post("/outbox/claim", dependencies=[Depends(authenticate)])
 def claim_delivery(db: Session = Depends(get_db)):
     return {"delivery": clawbot_delivery.claim(db, load_bindings())}
+
+
+@router.post("/welcome/claim", dependencies=[Depends(authenticate)])
+def claim_welcome(request: Request, db: Session = Depends(get_db)):
+    return {"delivery": clawbot_welcome.claim(db, load_bindings(), public_base_url(request))}
+
+
+@router.post("/welcome/{delivery_id}/start", dependencies=[Depends(authenticate)])
+def start_welcome(delivery_id: int, payload: DeliveryLease, db: Session = Depends(get_db)):
+    clawbot_welcome.begin_send(db, delivery_id, payload.claim_token, load_bindings())
+    return {"send": True}
+
+
+@router.post("/welcome/{delivery_id}/result", dependencies=[Depends(authenticate)])
+def result_welcome(delivery_id: int, payload: DeliveryResult, db: Session = Depends(get_db)):
+    clawbot_welcome.complete_send(db, delivery_id, payload.claim_token, payload.outcome,
+                                 payload.message_id, payload.error_code)
+    return {"ok": True}
 
 
 @router.post("/outbox/{delivery_id}/start", dependencies=[Depends(authenticate)])

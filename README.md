@@ -17,6 +17,7 @@
 | Linux实际运行与手机验收结果 | [2026-10-13服务器验收](docs/Linux部署验收_2026-10-13.md) |
 | 生成邀请、手机扫码、功能示例、撤销 | [用户接入与管理员操作](docs/USER_ACCESS.md) |
 | 浏览器管理成员、生成邀请、标记授权异常 | [成员与邀请管理后台](docs/MEMBER_MANAGEMENT.md)，固定域名 `/manage` |
+| 首次连接指南、设置头像/备注名、体验功能 | [新用户引导说明](docs/ONBOARDING.md)，公共页面 `/guide`；已部署，手机验收待确认 |
 | 初始化独立私有配置 | [setup-clawbot.py](scripts/setup-clawbot.py)，只用于新目录 |
 | 常驻后台、重启恢复模板 | [四个systemd服务](deployment/linux) |
 | 名称与头像能否自动改变 | [小满品牌与微信资料边界](docs/BRANDING.md)、[可行方案调研](docs/BRANDING_解决方案调研.md) |

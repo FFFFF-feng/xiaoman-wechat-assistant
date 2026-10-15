@@ -3,6 +3,14 @@ import { readFile } from 'node:fs/promises';
 // Runs inside the Gateway. The installed Tencent channel owns credentials,
 // context tokens and its provider API; this worker never reads or calls iLink.
 export function createReminderPump(config, deps) {
+  return createOutboxPump(config, deps, '/outbox');
+}
+
+export function createWelcomePump(config, deps) {
+  return createOutboxPump(config, deps, '/welcome');
+}
+
+function createOutboxPump(config, deps, prefix) {
   const read = deps.readFile ?? readFile;
   const fetchLocal = deps.fetch ?? globalThis.fetch;
   const logger = deps.logger ?? { info() {}, warn() {} };
@@ -35,7 +43,7 @@ export function createReminderPump(config, deps) {
       try {
         const adapter = await deps.loadAdapter('openclaw-weixin');
         if (typeof adapter?.sendText !== 'function') throw new Error('channel-adapter-unavailable');
-        item = (await post('/outbox/claim', {}, signal)).delivery;
+        item = (await post(`${prefix}/claim`, {}, signal)).delivery;
         if (!item) return;
         const bindings = JSON.parse(await read(config.bindingsFile, 'utf8'));
         const allowed = Array.isArray(bindings) && bindings.some(v => v.account_id === item.account_id && v.sender_id === item.sender_id);
@@ -44,7 +52,7 @@ export function createReminderPump(config, deps) {
           logger.warn('Xiaoman reminder claim not sent: binding/content/service checks failed.');
           return;
         }
-        await post(`/outbox/${item.id}/start`, { claim_token: item.claim_token }, signal);
+        await post(`${prefix}/${item.id}/start`, { claim_token: item.claim_token }, signal);
         sending = true;
         if (signal?.aborted) {
           result = { outcome: 'failed', error_code: 'service_stopped_before_send' };
@@ -60,8 +68,8 @@ export function createReminderPump(config, deps) {
             result = { outcome: 'unknown', error_code: 'send_result_unknown' };
           }
         }
-        await post(`/outbox/${item.id}/result`, { claim_token: item.claim_token, ...result });
-        logger.info(`Xiaoman reminder delivery ${item.id}: ${result.outcome}.`);
+        await post(`${prefix}/${item.id}/result`, { claim_token: item.claim_token, ...result });
+        logger.info(`Xiaoman ${prefix} delivery ${item.id}: ${result.outcome}.`);
       } catch (error) {
         // Do not print message bodies, targets, claim tokens or provider errors.
         if (item && sending) logger.warn(`Xiaoman reminder delivery ${item.id}: result not recorded; no resend.`);

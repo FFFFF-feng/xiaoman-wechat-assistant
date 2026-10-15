@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小满使用指南 · 从这里开始</title><link rel="icon" type="image/jpeg" href="/static/xiaoman-avatar.jpg" /><link rel="stylesheet" href="/static/guide.css" /></head>
+<body><main>
+<header><a href="#top">小满</a><nav aria-label="指南导航"><a href="#setup">设置头像与名字</a><a href="#try">体验功能</a></nav></header>
+<section id="top" class="intro"><div><h1>你好，我是小满。</h1><p class="lead">微信里的聊天伙伴，也是你的待办和提醒助手。</p><p>连接完成后，先回到 ClawBot 对话发一句「你好，小满」。收到回复，就可以从下面开始体验。</p><p class="notice">这个网页只提供指南，不会自动修改微信资料，也不会读取你的聊天或日程。</p></div><figure class="identity"><img src="/static/xiaoman-avatar.jpg" alt="小满头像：草地上的白色小狗" width="220" height="220" /><figcaption>你可以把 ClawBot 设置成这个头像，<br />并备注为「小满」。</figcaption></figure></section>
+<section id="setup" class="section"><h2>先把小满认出来</h2><p class="sub">只修改 ClawBot 的设置，不要进入微信「我」的个人资料。</p>
+<ol class="setup-steps"><li><h3>保存头像</h3><p>长按上面的小狗头像，选择「保存图片」。也可以打开原图后保存。</p><a class="button secondary" href="/static/xiaoman-avatar.jpg" download="小满头像.jpg">打开或保存头像原图</a><p class="hint">微信内置浏览器若不支持下载按钮，请长按原图保存；只保存图片不会改变头像。</p></li>
+<li><h3>在 ClawBot 设置里换头像</h3><p>回到微信，打开 ClawBot 对话，点击右上角的资料或设置入口，找到「头像」并从相册选择刚保存的图片，裁剪后确认。</p><details><summary>怎么确认没有改错地方？</summary><p>目标页面应能看到「头像」「备注名」「清空此功能消息记录」。如果看到个人「微信号」等资料，请返回，不要修改。不同微信版本的入口可能略有不同，以手机实际界面为准；找不到时联系管理员。</p></details></li>
+<li><h3>把备注名设为“小满”</h3><p>在同一设置页点击「备注名」，填写「小满」并保存。返回对话，确认名字和头像已更新。</p><button class="button" data-copy="小满" type="button">复制名称“小满”</button><p class="hint">这是你自己的 ClawBot 显示设置，不会修改你的个人微信头像和昵称，也不会同步到其他用户。</p></li></ol></section>
+<section id="try" class="section"><h2>挑一件事，试着交给我</h2><p class="sub">点击按钮只复制文字。回到微信粘贴并发送，才会执行；建议逐条体验，等收到回复再继续。</p>
+<div class="experiences"><article><h3>先聊两句</h3><p>说说今天的心情，或者让小满帮你整理想法。</p><blockquote>你好，小满，我今天有点累</blockquote><button type="button" data-copy="你好，小满，我今天有点累">复制聊天示例</button></article>
+<article><h3>试一次到点提醒</h3><p>先用一分钟的小测试，确认你的微信能收到主动提醒。</p><blockquote>一分钟后提醒我喝水</blockquote><button type="button" data-copy="一分钟后提醒我喝水">复制提醒示例</button><p class="hint">发送后会创建真实的测试待办。核对回复里的时间，一分钟后检查提醒是否收到。</p></article>
+<article><h3>看看自己的待办</h3><p>查看未完成任务和时间，不需要再次创建提醒。</p><blockquote>查询待办</blockquote><button type="button" data-copy="查询待办">复制查询示例</button></article>
+<article><h3>用语音记下来</h3><p>在微信长按语音按钮，说「两分钟后提醒我喝水」。核对识别文字、任务和时间，再等提醒。</p><p class="hint">此功能需要部署方启用语音识别。语音会发送给百炼识别；若提示未启用或识别失败，请用文字，不要假设任务已创建。</p></article>
+<article><h3>打开日程页</h3><p>发送下面的文字，再单击小满返回的「点击打开我的日程」。可在网页查看、完成、延后或取消自己的任务。</p><blockquote>打开日程</blockquote><button type="button" data-copy="打开日程">复制日程示例</button><p class="hint">日程授权链接 30 分钟内有效，仅限本人使用，不要转发。过期时重新发送「打开日程」。</p></article>
+<article><h3>整理聊天内容</h3><p>先发「整理聊天记录」，按小满提示粘贴文字并结束收集；也可发送清晰截图或支持的文件，请它提炼要点。</p><button type="button" data-copy="整理聊天记录">复制整理入口</button><p class="hint">合并转发卡片的正文不一定能被微信插件读取；请改用文字、截图或导出文件。不要上传密码或敏感资料。</p></article></div></section>
+<section class="section help"><h2>用起来不顺时</h2><details><summary>扫码成功，但小满没有回复</summary><p>确认消息发给的是本次授权后出现的 ClawBot 对话，不是公众号或旧入口。发送纯文字「你好，小满」再等回复。仍无回复请联系管理员，提供测试时间和报错，不要反复扫码。</p></details><details><summary>没有收到提醒</summary><p>先发「查询待办」，确认任务和时间正确，检查 ClawBot 的消息免打扰设置。若仍未收到，让管理员检查服务和发送状态；不要连续重复创建同一提醒。</p></details><details><summary>日程链接打不开</summary><p>重新发送「打开日程」并打开新链接。仍失败时记录错误文字并联系管理员；截图前遮住地址中 access= 后面的授权令牌。</p></details><details><summary>以后怎么再找到这份指南？</summary><p>给小满发送「使用指南」或「初始化小满」，就能再次获得此页面链接。本指南不需要邀请码，也不能用于登录别人的日程。</p><button type="button" data-copy="使用指南">复制指南入口</button></details><p class="privacy">你的任务按已绑定身份隔离。聊天、语音或资料识别会使用部署方配置的模型服务；识别后的文字可能保存在项目历史中。需要停止使用时，请联系管理员撤销接入。</p></section>
+<footer>小满 · 把要记的事，轻轻放下。<a href="#top">回到顶部</a></footer>
+</main><div id="copy-feedback" role="status" aria-live="polite" hidden><span id="copy-message"></span><input id="copy-fallback" readonly aria-label="长按复制此文字" hidden /><button id="close-feedback" type="button">关闭提示</button></div><script src="/static/guide.js" defer></script></body></html>

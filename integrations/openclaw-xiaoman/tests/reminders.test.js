@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createReminderPump } from '../reminders.js';
+import { createReminderPump, createWelcomePump } from '../reminders.js';
 
 const config = { backendUrl: 'http://127.0.0.1:18083', tokenFile: 'token', bindingsFile: 'bindings' };
-function setup({ failure = false, rejectStart = false, unbound = false, emptyReceipt = false, failAck = false } = {}) {
+function setup({ failure = false, rejectStart = false, unbound = false, emptyReceipt = false, failAck = false, welcome = false } = {}) {
   let claimed = false, sends = 0, result;
   const paths = [];
-  const pump = createReminderPump(config, {
+  const pump = (welcome ? createWelcomePump : createReminderPump)(config, {
     readFile: async p => p === 'token' ? 'a'.repeat(64) : JSON.stringify([{ account_id: 'bot', sender_id: unbound ? 'Bob' : 'Alice' }]),
     hostConfig: {},
     loadAdapter: async () => ({ sendText: async ctx => {
@@ -64,4 +64,15 @@ test('ACK failure after send does not cause a second physical send', async () =>
 test('aborted service admits no new work', async () => {
   const t = setup(); const signal = AbortSignal.abort(); await t.pump.run(signal);
   assert.equal(t.paths.length, 0);
+});
+
+test('welcome uses separate authenticated outbox and exact account, sends once', async () => {
+  const t = setup({ welcome: true }); await t.pump.run(); await t.pump.run();
+  assert.equal(t.sends(), 1);
+  assert.equal(t.result().outcome, 'accepted');
+  assert.ok(t.paths.every(path => path.startsWith('/api/internal/clawbot/welcome/')));
+});
+test('uncertain welcome is not sent again after a poll', async () => {
+  const t = setup({ welcome: true, failure: true }); await t.pump.run(); await t.pump.run();
+  assert.equal(t.result().outcome, 'unknown'); assert.equal(t.sends(), 1);
 });

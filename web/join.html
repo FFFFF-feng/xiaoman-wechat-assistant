@@ -16,7 +16,7 @@
 <div id="consent" hidden><label class="check"><input id="agree" type="checkbox" />我了解以上数据用途，同意连接本人微信。</label><button id="start" disabled>生成我的连接二维码</button></div>
 <figure id="qr-box" hidden><img id="qr" alt="用本人微信扫描此连接二维码" width="280" height="280" /><figcaption>请用微信「扫一扫」。同一手机可保存图片后识别；以微信实际提示为准。</figcaption></figure>
 <form id="code-form" hidden><label for="code">手机显示的配对数字</label><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{2,12}" minlength="2" maxlength="12" required /><button>确认配对数字</button></form>
-<div id="success" hidden><h3>已完成微信授权</h3><p>现在去微信 ClawBot 对话发送：</p><blockquote>你好，小满<br />一分钟后提醒我喝水<br />打开日程</blockquote><p>收到回复和提醒后，才算完成端到端体验。电脑或服务器需要持续在线。</p></div>
+<div id="success" hidden><h3>已完成微信授权</h3><p>回到微信 ClawBot 对话发送「你好，小满」。首次消息后，小满会给你发送一次使用指南。</p><p><a class="guide-link" href="/guide" target="_blank" rel="noopener noreferrer">先看看：设置头像、名字和体验功能</a></p><p>授权成功不代表已收到消息；请确认聊天回复和测试提醒都正常。网页引导不会自动修改微信资料。</p></div>
 <button id="cancel" class="secondary" hidden>取消本次连接</button><button id="revoke" class="secondary" hidden>撤销我的接入</button>
 <div id="phone-transfer" hidden><button id="copy-invite" class="secondary">复制本邀请链接到手机</button>
 <input id="phone-link" type="text" readonly aria-label="本邀请的手机链接" hidden />

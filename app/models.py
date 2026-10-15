@@ -142,6 +142,20 @@ class ClawbotInvitation(Base):
     owner_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
+class ClawbotWelcome(Base):
+    """One welcome per identity; uncertain native sends are never retried."""
+    __tablename__ = "clawbot_welcomes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="waiting", nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    claim_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class ClawbotMemberProfile(Base):
     __tablename__ = "clawbot_member_profiles"
     owner_id: Mapped[str] = mapped_column(String(200), primary_key=True)

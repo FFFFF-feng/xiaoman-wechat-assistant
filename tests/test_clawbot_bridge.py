@@ -93,7 +93,7 @@ class ClawbotBridgeTests(TestCase):
     def test_brand_query_does_not_claim_wechat_contact_was_renamed(self):
         result = self.send("小满资料")
         self.assertEqual(result.status_code, 200)
-        self.assertIn("没有修改接口", result.json()["reply"])
+        self.assertIn("手动修改头像和备注名", result.json()["reply"])
         with self.sessions() as db:
             self.assertEqual(db.scalar(select(func.count()).select_from(Task)), 0)
 

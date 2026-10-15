@@ -12,7 +12,7 @@ from fastapi.responses import Response
 MAX_REQUEST_BYTES = 256 * 1024
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 CALLBACK = "/api/channels/wechat/callback"
-READ_ONLY_PATHS = {"/schedule", "/join", "/static/schedule.css", "/static/schedule.js", "/static/paw.svg"}
+READ_ONLY_PATHS = {"/schedule", "/join", "/guide", "/static/xiaoman-avatar.jpg", "/static/schedule.css", "/static/schedule.js", "/static/paw.svg"}
 JOIN_ACTIONS = {"/api/join/start", "/api/join/code", "/api/join/cancel", "/api/join/revoke"}
 SCHEDULE_ACTION = re.compile(r"/api/schedule/tasks/[1-9][0-9]*/(?:complete|snooze|cancel)")
 MANAGE_MEMBER = re.compile(r"/api/manage/members/clawbot:[a-f0-9]{64}/(?:label|revoke)")
