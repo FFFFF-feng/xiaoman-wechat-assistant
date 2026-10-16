@@ -14,7 +14,7 @@ MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 CALLBACK = "/api/channels/wechat/callback"
 READ_ONLY_PATHS = {"/schedule", "/join", "/guide", "/static/xiaoman-avatar.jpg", "/static/schedule.css", "/static/schedule.js", "/static/paw.svg"}
 JOIN_ACTIONS = {"/api/join/start", "/api/join/code", "/api/join/cancel", "/api/join/revoke"}
-SCHEDULE_ACTION = re.compile(r"/api/schedule/tasks/[1-9][0-9]*/(?:complete|snooze|cancel)")
+SCHEDULE_ACTION = re.compile(r"/api/schedule/tasks/[1-9][0-9]*/(?:complete|snooze|cancel|edit)")
 MANAGE_MEMBER = re.compile(r"/api/manage/members/clawbot:[a-f0-9]{64}/(?:label|revoke)")
 MANAGE_INVITATION = re.compile(r"/api/manage/invitations/[1-9][0-9]*/cancel")
 
@@ -31,7 +31,9 @@ def allowed_path(path: str, method: str, *, schedule_only: bool = False) -> bool
             return method == "POST"
     if path == CALLBACK:
         return not schedule_only and method in {"GET", "POST"}
-    if path in READ_ONLY_PATHS or path == "/api/schedule/tasks":
+    if path == "/api/schedule/tasks":
+        return method in {"GET", "HEAD", "POST"}
+    if path in READ_ONLY_PATHS:
         return method in {"GET", "HEAD"}
     if path == "/api/join/status":
         return method == "GET"

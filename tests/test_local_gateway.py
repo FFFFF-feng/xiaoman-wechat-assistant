@@ -50,8 +50,10 @@ class LocalGatewayTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.requests[-1].headers["authorization"], "Bearer test-only-value")
         self.assertEqual(self.client.post("/api/schedule/tasks/12/cancel").status_code, 200)
+        self.assertEqual(self.client.post("/api/schedule/tasks", json={}).status_code, 200)
+        self.assertEqual(self.client.post("/api/schedule/tasks/12/edit", json={}).status_code, 200)
         previous = len(self.requests)
-        for path, method in (("/api/schedule/tasks", "POST"), ("/schedule", "POST"),
+        for path, method in (("/api/schedule/tasks", "DELETE"), ("/schedule", "POST"),
                              ("/api/schedule/tasks/12/cancel", "GET"), ("/api/channels/wechat/callback", "PUT")):
             self.assertEqual(self.client.request(method, path).status_code, 404)
         self.assertEqual(len(self.requests), previous)

@@ -218,6 +218,7 @@ def wants_record_import(text: str) -> bool:
 
 
 def summarize(text: str | None = None, image: str | None = None) -> str:
+    from .reply_style import NATURAL_CHAT_POLICY
     if not model_parser.MODEL_ENABLED or not model_parser.API_KEY:
         raise MaterialError("识别模型尚未配置，请联系管理员")
     instructions = (
@@ -236,13 +237,16 @@ def summarize(text: str | None = None, image: str | None = None) -> str:
         "像朋友分享照片时聊天，不把颜色、形状、位置逐项报出来；不编造拍摄背景或人物心理。"
         "不要把图片里的动物认成自己，也不虚构自己的身体、生活经历或与用户的共同经历；轻轻接话后就收住。"
         "短信、通知、报错、票据或聊天截图：直接说关键内容及其含义，保留必要的姓名、日期、金额和后文改口；"
+        "例如通知只写项目、截止时间和地点待定，就用一两句话说清这些，不用先说这是一张截图或关键信息如下；"
         "有多项信息才用简短列表，不逐字抄整张图，也不擅自断言通知真假。"
-        "不要无依据评价日期远近、事情紧急或计划长短，也不要追加空泛的感叹。"
+        "不要无依据评价日期远近、事情紧急或计划长短，不追加时间还早、来得及等判断，也不要追加空泛的感叹。"
         "普通照片不硬凑待办，不提提醒或日程；只有确实列出了日程安排或待办时，顺口说明尚未设置提醒。"
         "看不清的关键内容才说明不确定，信息足够就直接回答；不要每次都问需要我帮你什么或追加服务菜单。"
         if image else
-        "只用中文输出一份阅读结果：主要内容或摘要、可辨认的重要原文、待办草稿（如有）、不确定或缺失的信息。"
+        "用中文先说资料的关键内容；信息多时才分组或列清单，不机械套摘要、原文、待办、缺失信息四段标题。"
+        "有实际待办才列待办草稿；关键原文按需要引用，重要信息缺失时明确说出，不能因简洁丢掉事实。"
     )
+    instructions += "\n" + NATURAL_CHAT_POLICY
     content = ([{"type": "text", "text": "看看我发的这张图，按内容自然回应我。"},
                 {"type": "image_url", "image_url": {"url": image}}] if image else bounded(text or ""))
     try:

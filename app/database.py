@@ -41,6 +41,8 @@ def _migrate_sqlite() -> None:
     with engine.begin() as connection:
         additions = {
             "tasks": {"owner_id": "VARCHAR(200)", "wechat_app_id": "VARCHAR(64)",
+                      "category": "VARCHAR(20) NOT NULL DEFAULT 'life'",
+                      "notes": "TEXT NOT NULL DEFAULT ''", "reminder_enabled": "BOOLEAN NOT NULL DEFAULT 1",
                       "reminder_channel": "VARCHAR(30)", "notification_template_id": "VARCHAR(200)"},
             "reminders": {"channel": "VARCHAR(30)", "error": "TEXT", "error_code": "VARCHAR(40)",
                           "external_message_id": "VARCHAR(100)"},

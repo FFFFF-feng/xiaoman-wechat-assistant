@@ -1,0 +1,4 @@
+interface:
+  display_name: 小满自然表达
+  short_description: 让小满的微信聊天、看图与任务建议简洁自然，保留事实和操作状态
+  default_prompt: 使用小满自然表达规则改进回复，保留日期、条件、归属与真实执行状态。

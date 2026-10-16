@@ -8,18 +8,21 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from .model_parser import CHAT_HISTORY_LIMIT, parse_with_model
-from .models import ClawbotMessage, Message, Task, WechatDialogueMessage, WechatMessage
+from .models import ClawbotMessage, ConversationTaskContext, Message, Task, WechatDialogueMessage, WechatMessage
 from .clawbot_identity import is_clawbot_owner
 from .clawbot_delivery import enabled as clawbot_reminders_enabled
 from .parser import (
     CREATE_PATTERN,
     RELATIVE_MINUTES_PATTERN,
     ParsedCommand,
+    correction_time_text,
+    is_time_correction,
     has_explicit_date,
     has_time_expression,
     now_local,
     parse_command,
     parse_time_followup,
+    parse_task_time_correction,
     reminder_intent_guard,
 )
 from .schemas import ChatResponse
@@ -167,6 +170,12 @@ def _reconcile_commands(
         followup_command.source = "hybrid" if model_command is not None else "rules"
         return followup_command
 
+    # The noon convention is validated by the same rules as explicit clocks.
+    # Model chat intent still wins; an outdated missing-time question does not.
+    if rule_command.assumed_time and model_command and model_command.action in {"create", "clarify"}:
+        rule_command.source = "hybrid"
+        return rule_command
+
     # 已过的“今天几点”不能被模型悄悄改成明天。
     if (
         model_command is not None
@@ -216,6 +225,7 @@ def _reconcile_commands(
                     confidence=model_command.confidence,
                     message=model_command.message,
                     source="hybrid",
+                    assumed_time=rule_command.assumed_time,
                 )
             if rule_command.action == "clarify" and re.search(
                 rf"(?:{CREATE_PATTERN}|延后|推迟|延期|改到)", text
@@ -311,6 +321,7 @@ def _execute_command(
         db.refresh(task)
         return ChatResponse(
             reply=f"记下啦，{_friendly_due(task.due_at)}提醒你{task.title}。"
+                  + ("中午我先按12:00安排，你也可以说“改成12:30”。" if command.assumed_time else "")
                   + ("自动提醒暂不可用。" if is_clawbot_owner(owner_id) and not clawbot_reminders_enabled() else ""),
             action="create",
             task=task,
@@ -332,7 +343,12 @@ def _execute_command(
         lines = [f"{i + 1}. {task.title}（{task.due_at.strftime('%m月%d日 %H:%M')}，{task.status}）" for i, task in enumerate(tasks)]
         return ChatResponse(reply="给你列好啦：\n" + "\n".join(lines), action=command.action)
 
-    task = _find_task(db, command.title, owner_id=owner_id)
+    if command.task_id is not None:
+        task = db.get(Task, command.task_id)
+        if task is not None and (task.owner_id != owner_id or task.status not in {"open", "snoozed"}):
+            task = None
+    else:
+        task = _find_task(db, command.title, owner_id=owner_id)
     if not task:
         return ChatResponse(
             reply=f"我没找到“{command.title or '这个'}”对应的未完成任务，可以换个关键词试试。",
@@ -346,8 +362,9 @@ def _execute_command(
         reply = f"已取消「{task.title}」。"
     elif command.action == "snooze":
         try:
-            channel, template_id = plan_reminder(db, owner_id, command.due_at or task.due_at,
+            channel, template_id = (plan_reminder(db, owner_id, command.due_at or task.due_at,
                                                  task.title, exclude_task_id=task.id)
+                                    if task.reminder_enabled else (None, None))
         except NotificationBlocked as exc:
             return ChatResponse(reply=str(exc), action="clarify")
         task.due_at = command.due_at or task.due_at
@@ -385,7 +402,7 @@ def _fragment_safety_guard(text: str) -> ParsedCommand | None:
             return ParsedCommand("clarify", confidence="low", message="好，这次先不创建提醒。")
     if sum(bool(re.search(CREATE_PATTERN, line)) for line in lines) > 1:
         return ParsedCommand("clarify", confidence="low", message="我收到几个提醒要求，先不创建。请确认要记哪件事、什么时间。")
-    if sum(has_time_expression(line) for line in lines) > 1 or sum(has_explicit_date(line) for line in lines) > 1:
+    if sum(has_time_expression(line) or "中午" in line for line in lines) > 1 or sum(has_explicit_date(line) for line in lines) > 1:
         return ParsedCommand("clarify", confidence="low", message="你提到了不同的时间，先不创建。最后确定是哪天、几点呢？")
     return None
 
@@ -402,12 +419,43 @@ def handle_chat_message(
         return ChatResponse(reply="你可以发一句话给我。", action="clarify")
 
     history = _recent_chat_history(db, conversation_id=conversation_id)
+    remote_conversation = bool(conversation_id and conversation_id.startswith("wechat")) or is_clawbot_owner(conversation_id)
+    owner_id = conversation_id if remote_conversation else None
+    owner_key = owner_id or "local"
+    context = db.get(ConversationTaskContext, owner_key)
+    correction = None
+    if correction_time_text(normalized) is not None:
+        task = db.get(Task, context.task_id) if context and context.expires_at > datetime.now() else None
+        if task and is_clawbot_owner(owner_id):
+            # Materials and import controls bypass normal chat; inspect the actual
+            # last receipt, including those messages, rather than filtered history.
+            rows = db.scalars(select(ClawbotMessage).where(
+                ClawbotMessage.owner_id == owner_id
+            ).order_by(desc(ClawbotMessage.created_at), desc(ClawbotMessage.id)).limit(2)).all()
+            # The caller has already persisted this incoming text as processing.
+            if rows and rows[0].status == "processing" and rows[0].content.strip() == normalized:
+                rows = rows[1:]
+            last = rows[0] if rows else None
+            receipt = json.loads(last.response_json) if last and last.response_json else {}
+            if not last or last.status != "processed" or receipt.get("action") not in {"create", "snooze"} or (receipt.get("task") or {}).get("id") != task.id:
+                task = None
+        if task and task.owner_id == owner_id and task.status in {"open", "snoozed"}:
+            correction = parse_task_time_correction(normalized, task.id, task.due_at)
+        else:
+            correction = ParsedCommand("clarify", message="想改哪条提醒？请带上任务名称和新时间，例如“把周报改到明天12:30”。")
+    if re.match(r"^(?:不要|别|不用|不需要|如果|假如|要是).*(?:改成|改到|换成|换到)", normalized):
+        correction = ParsedCommand("clarify", message="这次先不修改提醒。确定要改时，告诉我任务名称和新时间就好。")
+    if correction is None and is_time_correction(normalized) and (
+        context is not None or has_time_expression(normalized) or has_explicit_date(normalized)
+        or re.search(r"提醒|任务", normalized)
+    ):
+        correction = ParsedCommand("clarify", message="想改到哪个时间？请给一个确定的时刻，例如“改成12:30”。")
     followup_command = parse_time_followup(
         normalized,
         _latest_user_text(history),
         _latest_assistant_text(history),
     )
-    guard = _fragment_safety_guard(normalized)
+    guard = correction or _fragment_safety_guard(normalized)
     rule_command = parse_command(normalized)
     model_command = parse_with_model(normalized, history=history) if use_model and guard is None else None
     command = guard or _reconcile_commands(normalized, model_command, rule_command, followup_command)
@@ -419,12 +467,20 @@ def handle_chat_message(
             source="rules",
         )
 
-    remote_conversation = bool(conversation_id and conversation_id.startswith("wechat")) or is_clawbot_owner(conversation_id)
-    owner_id = conversation_id if remote_conversation else None
     response = _execute_command(command, db, owner_id=owner_id)
     response.parser = command.source
     if not remote_conversation:
         record_message(db, "chat_user", normalized)
         record_message(db, "chat_assistant", response.reply)
+    if response.action in {"create", "snooze"} and response.task is not None:
+        if context is None:
+            context = ConversationTaskContext(owner_key=owner_key, task_id=response.task.id,
+                                              expires_at=datetime.now() + timedelta(minutes=15))
+            db.add(context)
+        else:
+            context.task_id = response.task.id
+            context.expires_at = datetime.now() + timedelta(minutes=15)
+    elif context is not None:
+        db.delete(context)
     db.commit()
     return response

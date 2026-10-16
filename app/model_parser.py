@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from openai import OpenAI
 
 from .parser import ParsedCommand
+from .reply_style import NATURAL_CHAT_POLICY
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +204,7 @@ action 规则：
 - “如果明天下雨我要带伞吗”“这个条件成立吗”“你觉得我该怎么选”属于 chat，不得创建任务。
 - “如果明天下雨就提醒我带伞”需要外部条件触发，本系统当前不支持。使用 clarify，说明只能按明确日期时间提醒，并询问是否改成定时提醒。
 - “两分钟后提醒我喝水”这类可计算的相对时间是明确时间，使用当前准确时间计算 due_at 并创建提醒；“一会儿”“晚点”才是模糊时间，需要追问。
+- “中午提醒我……”或“提醒我明天中午……”允许按12:00安排，必须在回执说明默认值；已经说了具体时刻则保留具体时刻。其他模糊时间仍需确认。时间已过不能擅自改为明天。
 - “下午五点提醒我洗澡”这类只给时刻、未给日期的请求，按今天下午五点处理；若当前已晚于该时刻，应追问用户是否要明天，而不是直接创建明天的任务。
 - 用户只是提到一个时间，不等于要求创建提醒。
 - 意图不确定时先 clarify，不要擅自创建或修改任务。
@@ -211,8 +213,9 @@ action 规则：
 
 due_at 必须是 {TIMEZONE} 对应的 ISO 8601 本地时间，例如 2026-09-16T10:00:00；不需要时间时为 null。
 title 只保留任务内容，不包含“提醒我、完成、取消、任务”等命令词和时间词。
-不要猜测缺失的时间，不要声称已经执行尚未执行的任务。
+除上述中午12:00的约定外，不要猜测缺失的时间，不要声称已经执行尚未执行的任务。
 必须只输出一个 JSON 对象，字段固定为 action、title、due_at、confidence、message，不要输出 Markdown 或结构以外的文字。"""
+    instructions += "\n以下表达规则仅用于message，严格保留上面的JSON协议：\n" + NATURAL_CHAT_POLICY
     try:
         if os.getenv("CLAWBOT_ENABLED", "false").lower() == "true":
             active = os.getenv("CLAWBOT_REMINDERS_ENABLED", "false").lower() == "true"
@@ -298,6 +301,7 @@ def generate_companion_reply(
         "你是陪伴型猫咪小满。请用自然、温暖、简短的中文回复用户，"
         "限 1 到 2 句话，不要提及系统、模型或提示词。"
     )
+    instructions += "\n" + NATURAL_CHAT_POLICY
     try:
         response = _client(timeout_seconds).chat.completions.create(
             model=MODEL_NAME,

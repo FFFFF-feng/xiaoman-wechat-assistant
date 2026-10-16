@@ -16,6 +16,9 @@ class Task(Base):
     due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(30), default="open", nullable=False, index=True)
     priority: Mapped[str] = mapped_column(String(20), default="normal", nullable=False)
+    category: Mapped[str] = mapped_column(String(20), default="life", nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     owner_id: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     wechat_app_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     reminder_channel: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -24,6 +27,25 @@ class Task(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
     reminders: Mapped[list["Reminder"]] = relationship(back_populates="task", cascade="all, delete-orphan")
+
+
+class ScheduleCreation(Base):
+    """Owner-bound creation receipts prevent double-click/network replay duplicates."""
+    __tablename__ = "schedule_creations"
+    owner_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    response_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
+
+
+class ConversationTaskContext(Base):
+    """Short-lived reference to a successful task operation, never inferred from prose."""
+    __tablename__ = "conversation_task_contexts"
+
+    owner_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
 class Reminder(Base):

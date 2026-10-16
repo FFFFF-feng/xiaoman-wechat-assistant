@@ -52,7 +52,7 @@ def _valid_task(db: Session, item: ClawbotDelivery, now: datetime) -> bool:
     reminder = db.get(Reminder, item.reminder_id)
     task = db.get(Task, reminder.task_id) if reminder else None
     reason = None
-    if not task or task.owner_id != item.owner_id or task.status not in {"open", "snoozed"}:
+    if not task or task.owner_id != item.owner_id or task.status not in {"open", "snoozed"} or not task.reminder_enabled:
         reason = "cancelled"
     elif task.due_at != reminder.reminder_time or task.due_at > now:
         reason = "superseded"

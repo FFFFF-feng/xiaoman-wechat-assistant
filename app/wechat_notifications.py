@@ -159,7 +159,7 @@ def _pending_count(db: Session, owner_id: str, channel: str, exclude_task_id: in
                    template_id: str | None = None) -> int:
     query = select(func.count(Task.id)).where(
         Task.owner_id == owner_id, Task.wechat_app_id == app_id(),
-        Task.status.in_(["open", "snoozed"]), Task.reminder_channel == channel,
+        Task.status.in_(["open", "snoozed"]), Task.reminder_channel == channel, Task.reminder_enabled.is_(True),
         ~select(Reminder.id).where(Reminder.task_id == Task.id, Reminder.reminder_time == Task.due_at).exists(),
     )
     if exclude_task_id is not None:

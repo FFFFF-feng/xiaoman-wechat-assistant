@@ -10,6 +10,7 @@ TZ = ZoneInfo("Asia/Shanghai")
 CN_DIGITS = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
 TIME_NUMBER = r"(?:\d{1,2}|[零〇一二两三四五六七八九十百]+)"
 TIME_PATTERN = rf"(?:(?P<meridiem>上午|早上|中午|下午|晚上)\s*)?(?P<hour>{TIME_NUMBER})(?:[:：](?P<colon_minute>{TIME_NUMBER}))?\s*点(?:\s*(?P<half>半)|\s*(?P<minute>{TIME_NUMBER})\s*分?)?"
+CLOCK_PATTERN = r"(?<![\d:：])([0-9]{1,2})[:：]([0-9]{2})(?![\d:：点]|\s*(?:am|pm))"
 DATE_PATTERN = r"(?:今天|明天|后天|大后天|\d{1,2}月\d{1,2}[日号]?)"
 RELATIVE_MINUTES_PATTERN = r"(?P<relative_minutes>\d{1,4}|[零〇一二两三四五六七八九十百]+)\s*分钟后"
 CREATE_PATTERN = r"提醒|叫我|记得|安排|创建|新增|定时"
@@ -23,6 +24,8 @@ class ParsedCommand:
     confidence: str = "high"
     message: str | None = None
     source: str = "rules"
+    assumed_time: bool = False
+    task_id: int | None = None
 
 
 def now_local() -> datetime:
@@ -55,8 +58,24 @@ def has_explicit_date(text: str) -> bool:
 
 
 def has_time_expression(text: str) -> bool:
-    return bool(re.search(TIME_PATTERN, text) or re.search(RELATIVE_MINUTES_PATTERN, text)
+    return bool(re.search(TIME_PATTERN, text) or re.search(CLOCK_PATTERN, text) or re.search(RELATIVE_MINUTES_PATTERN, text)
                 or re.search(r"\d{1,2}(?:[:：]\d{1,2})?\s*(?:am|pm)", text, re.I))
+
+
+def _normalize_clock(text: str) -> str:
+    return re.sub(CLOCK_PATTERN, lambda m: f"{m[1]}点{m[2]}分", text, flags=re.I)
+
+
+def _default_noon_text(text: str) -> tuple[str, bool]:
+    """Only a noon scheduling phrase gets a default, never a mention in a title."""
+    if has_time_expression(text):
+        return text, False
+    compact = re.sub(r"\s+", "", text)
+    if re.search(rf"^(?:请|帮我|在|{DATE_PATTERN})*中午(?=提醒|叫我|记得)", compact) or re.search(
+        rf"(?:提醒我|叫我)(?:在)?(?:{DATE_PATTERN})?中午(?!前|后|左右|期间|之前|之后|[\d零〇一二两三四五六七八九十])", compact
+    ):
+        return text.replace("中午", "中午12点", 1), True
+    return text, False
 
 
 def reminder_intent_guard(text: str) -> ParsedCommand | None:
@@ -66,7 +85,7 @@ def reminder_intent_guard(text: str) -> ParsedCommand | None:
     或“提醒我检查如果下雨怎么办”中的提醒内容当作命令否定。
     这是确定性安全边界，不是完整的自然语言语义解析器。
     """
-    content = re.sub(r"\s+", "", text)
+    content = re.sub(r"\s+", "", _normalize_clock(text))
     trigger = re.search(CREATE_PATTERN, content)
     if trigger is None:
         return None
@@ -74,6 +93,7 @@ def reminder_intent_guard(text: str) -> ParsedCommand | None:
     # “不要在明天十点提醒我”与“不要提醒我明天十点”同样是否定。
     intent_prefix = re.sub(DATE_PATTERN, "", prefix)
     intent_prefix = re.sub(TIME_PATTERN, "", intent_prefix)
+    intent_prefix = intent_prefix.replace("中午", "")
     intent_prefix = re.sub(RELATIVE_MINUTES_PATTERN, "", intent_prefix)
     intent_prefix = re.sub(r"\d{1,2}(?:[:：]\d{1,2})?\s*(?:am|pm)", "", intent_prefix, flags=re.I)
     if re.search(
@@ -95,7 +115,8 @@ def reminder_intent_guard(text: str) -> ParsedCommand | None:
     return None
 
 
-def _extract_datetime(text: str) -> tuple[datetime | None, str | None]:
+def _extract_datetime(text: str, reference_date: datetime | None = None) -> tuple[datetime | None, str | None]:
+    text = _normalize_clock(text)
     relative_match = re.search(RELATIVE_MINUTES_PATTERN, text)
     if relative_match:
         minutes = _number_value(relative_match.group("relative_minutes"))
@@ -118,11 +139,14 @@ def _extract_datetime(text: str) -> tuple[datetime | None, str | None]:
     if date_match:
         month, day = int(date_match.group(1)), int(date_match.group(2))
         year = base.year + (1 if month < base.month - 6 else 0)
-        date_value = base.replace(year=year, month=month, day=day)
+        try:
+            date_value = base.replace(year=year, month=month, day=day)
+        except ValueError:
+            return None, "这个日期不存在，请换一个有效日期。"
     elif day_offset is not None:
         date_value = base + timedelta(days=day_offset)
     else:
-        date_value = base
+        date_value = reference_date or base
 
     time_match = re.search(TIME_PATTERN, text)
     if time_match:
@@ -152,14 +176,14 @@ def _extract_datetime(text: str) -> tuple[datetime | None, str | None]:
         return None, "时间格式不太对，小时应为 0-23，分钟应为 0-59。"
     result = date_value.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if result <= base:
-        if day_offset is None and date_match is None:
+        if day_offset is None and date_match is None and reference_date is None:
             return None, "今天这个时间已经过去了。如果要明天提醒，请明确说“明天几点提醒我……”。"
         return None, "这个日期和时间已经过去了，请换一个将来的时间。"
     return result, None
 
 
 def _extract_title(text: str) -> str:
-    cleaned = text
+    cleaned = _normalize_clock(text)
     cleaned = re.sub(RELATIVE_MINUTES_PATTERN, "", cleaned)
     cleaned = re.sub(r"(?:明天|后天|大后天|今天|\d{1,2}月\d{1,2}[日号]?)", "", cleaned)
     cleaned = re.sub(TIME_PATTERN, "", cleaned)
@@ -186,11 +210,14 @@ def parse_time_followup(
     # 不能把它误当成上一条日程的补充，否则会擅自继承上一轮的日期。
     if re.search(CREATE_PATTERN, text):
         return None
+    assumed_noon = bool(re.fullmatch(rf"\s*(?:{DATE_PATTERN})?\s*中午[。！!\s]*", text))
+    if assumed_noon:
+        text = text.replace("中午", "中午12点", 1)
     if not (has_explicit_date(text) or has_time_expression(text)):
         return None
     # 只有独立的日期/时间回答才可补全上一轮请求。“今天有点累”
     # 虽含日期词，但属于新的聊天内容，不能继承上一轮提醒的时间。
-    remainder = re.sub(DATE_PATTERN, "", text)
+    remainder = re.sub(DATE_PATTERN, "", _normalize_clock(text))
     remainder = re.sub(RELATIVE_MINUTES_PATTERN, "", remainder)
     remainder = re.sub(TIME_PATTERN, "", remainder)
     remainder = re.sub(r"\d{1,2}(?:[:：]\d{1,2})?\s*(?:am|pm)", "", remainder, flags=re.I)
@@ -217,7 +244,44 @@ def parse_time_followup(
         return ParsedCommand("clarify", confidence="low", message=error)
     if due_at is None:
         return None
-    return ParsedCommand("create", title=_extract_title(previous_user_text), due_at=due_at)
+    return ParsedCommand("create", title=_extract_title(previous_user_text), due_at=due_at, assumed_time=assumed_noon)
+
+
+CORRECTION_PREFIX = (r"(?:那就|那|不对[，,]?\s*)?(?:把)?"
+                     r"(?:刚才(?:那个|那条)?(?:提醒|任务)?|这个(?:提醒|任务)?)?"
+                     r"(?:改成|改到|换成|换到)")
+
+
+def is_time_correction(text: str) -> bool:
+    return bool(re.match(CORRECTION_PREFIX, text.strip()))
+
+
+def correction_time_text(text: str) -> str | None:
+    """Accept a standalone correction, not negated, conditional or quoted prose."""
+    match = re.fullmatch(
+        CORRECTION_PREFIX + r"\s*(.+?)[。！!，,\s]*", text.strip()
+    )
+    if not match:
+        return None
+    value = _normalize_clock(match[1])
+    remainder = re.sub(DATE_PATTERN, "", value)
+    remainder = re.sub(TIME_PATTERN, "", remainder)
+    remainder = re.sub(r"\d{1,2}(?:[:：]\d{1,2})?\s*(?:am|pm)", "", remainder, flags=re.I)
+    if re.sub(r"[\s。！!，,]|(?:吧|啊|呀)$", "", remainder) or not has_time_expression(value):
+        return None
+    if len(re.findall(TIME_PATTERN, value)) > 1 or len(re.findall(DATE_PATTERN, value)) > 1:
+        return None
+    return value
+
+
+def parse_task_time_correction(text: str, task_id: int, due_at: datetime) -> ParsedCommand:
+    value = correction_time_text(text)
+    if value is None:
+        raise ValueError("not a standalone time correction")
+    new_due, error = _extract_datetime(value, reference_date=due_at)
+    if error or new_due is None:
+        return ParsedCommand("clarify", message=error or "想改到几点呢？", confidence="low")
+    return ParsedCommand("snooze", due_at=new_due, task_id=task_id)
 
 
 def parse_command(text: str) -> ParsedCommand:
@@ -227,12 +291,13 @@ def parse_command(text: str) -> ParsedCommand:
         return guarded
 
     def create_command() -> ParsedCommand:
-        due_at, error = _extract_datetime(content)
+        scheduled, assumed = _default_noon_text(content)
+        due_at, error = _extract_datetime(scheduled)
         if error:
             return ParsedCommand("clarify", confidence="low", message=error)
         if due_at is None:
             return ParsedCommand("clarify", confidence="low", message="请告诉我几点提醒；不写日期默认今天，例如“下午5点提醒我提交周报”。")
-        return ParsedCommand("create", title=_extract_title(content), due_at=due_at)
+        return ParsedCommand("create", title=_extract_title(scheduled), due_at=due_at, assumed_time=assumed)
 
     # 创建动作之后的“取消/完成/查看”等可能只是提醒事项的内容，
     # 如“明天十点提醒我不要取消预约”，不能执行取消现有任务。

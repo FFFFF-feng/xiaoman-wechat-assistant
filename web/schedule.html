@@ -1,46 +1,382 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="referrer" content="no-referrer" />
-  <title>我的日程 · 小满</title>
-  <link rel="stylesheet" href="/static/schedule.css" />
-</head>
-<body>
-  <main class="planner">
-    <header class="masthead">
-      <div class="brand-mark" aria-hidden="true"><span class="mark-ear left"></span><span class="mark-ear right"></span><span class="mark-eyes">• •</span></div>
-      <div class="brand-copy"><strong>小满的日程簿</strong><span>把要紧的事，放在看得见的地方。</span></div>
-      <span class="private-tag">专属链接</span>
-    </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#fff7fa" />
+    <title>小满的日程簿</title>
+    <link rel="stylesheet" href="/static/schedule.css" />
+  </head>
+  <body>
+    <svg
+      class="icon-library"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24">
+        <rect x="4" y="5" width="16" height="16" rx="3" />
+        <path d="M8 3v4m8-4v4M4 11h16m-11 4h2m3 0h2" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m5 12 4 4L19 6" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 7v5l3 2" />
+      </symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24">
+        <path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14z" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="10" cy="10" r="6" />
+        <path d="m15 15 5 5" />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M6 18 18 6" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="6" y="10" width="12" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v2" />
+      </symbol>
+    </svg>
+    <main class="planner">
+      <header class="masthead">
+        <a class="brand" href="/schedule" aria-label="小满的日程簿首页"
+          ><span class="brand-cat" aria-hidden="true">ω</span
+          ><span
+            ><strong>小满的日程簿</strong
+            ><small>把日子，过成喜欢的样子。</small></span
+          ></a
+        >
+        <span class="private-tag"
+          ><svg class="icon"><use href="#i-lock" /></svg>仅自己可见</span
+        >
+        <button class="primary-button desktop-create" type="button" data-create>
+          <svg class="icon"><use href="#i-plus" /></svg>新建日程
+        </button>
+      </header>
 
-    <section class="day-hero" aria-labelledby="dayTitle">
-      <div class="day-number" id="dayNumber">--</div>
-      <div class="day-intro">
-        <p id="dayWeekday">正在整理日程</p>
-        <h1 id="dayTitle">今天，慢慢来。</h1>
-        <span id="daySummary">小满正在翻看你的日程簿</span>
-      </div>
-      <div class="orbit" aria-hidden="true"><i></i><i></i><i></i></div>
-    </section>
+      <section class="day-hero" aria-labelledby="dayTitle">
+        <div class="hero-copy">
+          <p id="dayWeekday">小满正在翻开日程簿</p>
+          <h1 id="dayTitle">今天，留点时间给自己。</h1>
+          <p id="daySummary">一件一件来，小满陪着你。</p>
+          <div class="daily-progress">
+            <progress
+              id="dayProgress"
+              value="0"
+              max="1"
+              aria-label="当天完成进度"
+            ></progress
+            ><span id="progressLabel">正在读取安排</span>
+          </div>
+        </div>
+        <div class="hero-illustration" aria-hidden="true">
+          <span class="little-star star-one">✧</span
+          ><span class="little-star star-two">✦</span>
+          <svg
+            class="notebook-cat"
+            viewBox="0 0 270 180"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M38 153c11-13 166-20 199-1"
+              stroke="#e9ceda"
+              stroke-width="10"
+              stroke-linecap="round"
+            />
+            <g transform="rotate(-8 115 116)">
+              <rect
+                x="47"
+                y="67"
+                width="128"
+                height="93"
+                rx="10"
+                fill="#fff"
+                stroke="#dfbecd"
+                stroke-width="2"
+              />
+              <path d="M70 66v93" stroke="#f3d0dd" stroke-width="2" />
+              <path
+                d="M85 90h67m-67 16h55m-55 16h65m-65 16h43"
+                stroke="#e9d9e0"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+              <path
+                d="m83 87 3 4 7-8"
+                stroke="#bc3565"
+                stroke-width="3"
+                stroke-linecap="round"
+              />
+            </g>
+            <path
+              d="M218 135c32-2 40-30 22-34-17-5-15 17-28 17"
+              stroke="#504154"
+              stroke-width="15"
+              stroke-linecap="round"
+            />
+            <ellipse cx="188" cy="121" rx="38" ry="30" fill="#504154" />
+            <path
+              d="m146 74 3-35 27 15c12-5 23-5 33 0l25-14 1 35c8 12 5 34-8 44-13 10-46 12-63 2-16-8-25-29-18-47Z"
+              fill="#504154"
+            />
+            <path d="m155 57 2-8 10 10m49 0 10-10v10" fill="#d7a3b8" />
+            <path
+              d="m164 83 6-3 6 3m27 0 6-3 6 3"
+              stroke="#fff7fa"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="m185 90 4 3 4-3m-4 3v4m0 0c-6 4-10-1-10-1m10 1c6 4 10-1 10-1"
+              stroke="#f6c3d5"
+              stroke-width="2.5"
+              stroke-linecap="round"
+            />
+            <path
+              d="m151 92-13-2m14 8-13 2m87-8 13-2m-14 8 13 2"
+              stroke="#9e8096"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <ellipse
+              cx="161"
+              cy="126"
+              rx="14"
+              ry="8"
+              fill="#67536a"
+              transform="rotate(-15 161 126)"
+            />
+            <ellipse cx="188" cy="136" rx="15" ry="7" fill="#67536a" />
+          </svg>
+          <span class="cat-note">今天也有好好生活</span>
+        </div>
+      </section>
 
-    <section class="calendar" aria-label="选择日期">
-      <div class="calendar-head">
-        <div><h2>本周日程</h2><p id="weekLabel"></p></div>
-        <div class="week-actions"><button type="button" id="prevWeek" aria-label="上一周">‹</button><button type="button" id="todayButton">今天</button><button type="button" id="nextWeek" aria-label="下一周">›</button></div>
-      </div>
-      <div id="weekDays" class="week-days" role="group" aria-label="一周七天"></div>
-    </section>
-
-    <section class="agenda" aria-labelledby="agendaTitle">
-      <div class="agenda-head"><h2 id="agendaTitle">当天安排</h2><span id="agendaCount">0 件</span></div>
       <p id="pageNotice" class="page-notice" role="status" hidden></p>
-      <div class="task-buttons"><button type="button" id="retryButton" hidden>重新加载日程</button></div>
-      <div id="agendaList" class="agenda-list" aria-live="polite"></div>
-    </section>
-    <footer>日程来自你与小满的微信聊天。要新建提醒，回到聊天窗口告诉小满即可。</footer>
-  </main>
-  <script src="/static/schedule.js" defer></script>
-</body>
+      <button type="button" id="retryButton" class="text-button" hidden>
+        重新加载日程
+      </button>
+      <div class="planner-grid">
+        <aside class="calendar-panel">
+          <section class="calendar" aria-label="选择日期">
+            <div class="calendar-toolbar">
+              <h2>我的日历</h2>
+              <div class="segmented" aria-label="日历视图">
+                <button type="button" data-view="week">周</button
+                ><button type="button" data-view="month">月</button>
+              </div>
+            </div>
+            <div class="calendar-head">
+              <button
+                type="button"
+                id="prevWeek"
+                class="icon-button"
+                aria-label="上一段日期"
+              >
+                ‹
+              </button>
+              <h3 id="weekLabel"></h3>
+              <button
+                type="button"
+                id="nextWeek"
+                class="icon-button"
+                aria-label="下一段日期"
+              >
+                ›
+              </button>
+            </div>
+            <div
+              id="weekDays"
+              class="week-days"
+              role="group"
+              aria-label="选择日历日期"
+            ></div>
+            <div class="date-tools">
+              <button type="button" id="todayButton" class="text-button">
+                回到今天</button
+              ><label class="date-jump"
+                >跳转日期<input type="date" id="dateJump" aria-label="跳转日期"
+              /></label>
+            </div>
+          </section>
+          <section class="quick-note" aria-labelledby="quickTitle">
+            <span class="note-spark" aria-hidden="true">✧</span>
+            <h2 id="quickTitle">想起来，就记一下</h2>
+            <p>工作、生活、学习……<br />小事也值得被好好记住。</p>
+            <div class="quick-buttons">
+              <button type="button" data-template="life">＋ 生活小事</button
+              ><button type="button" data-template="work">＋ 工作安排</button
+              ><button type="button" data-template="study">＋ 学习计划</button>
+            </div>
+          </section>
+        </aside>
+        <section class="agenda" aria-labelledby="agendaTitle">
+          <div class="agenda-head">
+            <div>
+              <p id="agendaDate"></p>
+              <h2 id="agendaTitle">
+                今天的安排 <span id="agendaCount">0</span>
+              </h2>
+            </div>
+            <button class="light-button" type="button" data-create>
+              <svg class="icon"><use href="#i-plus" /></svg>记一件事
+            </button>
+          </div>
+          <div class="agenda-tools">
+            <div class="filter-tabs" role="group" aria-label="筛选日程状态">
+              <button type="button" data-filter="active" aria-pressed="true">
+                待完成</button
+              ><button type="button" data-filter="all" aria-pressed="false">
+                全部</button
+              ><button type="button" data-filter="done" aria-pressed="false">
+                已完成</button
+              ><button
+                type="button"
+                data-filter="cancelled"
+                aria-pressed="false"
+              >
+                已取消
+              </button>
+            </div>
+            <label class="search-box"
+              ><svg class="icon"><use href="#i-search" /></svg
+              ><input
+                id="taskSearch"
+                type="search"
+                placeholder="搜索当天安排"
+                aria-label="搜索当天安排"
+            /></label>
+          </div>
+          <div
+            id="agendaList"
+            class="agenda-list"
+            aria-live="polite"
+            aria-busy="true"
+          ></div>
+          <div class="agenda-footnote">
+            <span aria-hidden="true">♡</span> 给努力的自己，也留一点空白。
+          </div>
+        </section>
+      </div>
+      <footer>
+        <svg class="icon"><use href="#i-lock" /></svg
+        >这是你的专属日程。微信里说一句，也可以在这里自己安排。<span
+          >时间按北京时间显示</span
+        >
+      </footer>
+    </main>
+    <button class="mobile-create primary-button" type="button" data-create>
+      <svg class="icon"><use href="#i-plus" /></svg>新建日程
+    </button>
+
+    <dialog id="taskDialog" aria-labelledby="dialogTitle">
+      <form id="taskForm">
+        <header class="dialog-header">
+          <div>
+            <p id="dialogEyebrow">留给未来的自己</p>
+            <h2 id="dialogTitle">记下一件事</h2>
+          </div>
+          <button
+            type="button"
+            id="closeDialog"
+            class="icon-button"
+            aria-label="关闭日程表单"
+          >
+            <svg class="icon"><use href="#i-close" /></svg>
+          </button>
+        </header>
+        <div class="form-body">
+          <label class="field title-field"
+            >想做什么？<input
+              id="taskTitle"
+              name="title"
+              maxlength="300"
+              required
+              placeholder="比如：取快递、交周报、去公园走走"
+              autocomplete="off"
+              autofocus
+          /></label>
+          <div class="field-row">
+            <label class="field"
+              >日期<input
+                type="date"
+                id="taskDate"
+                name="date"
+                required /></label
+            ><label class="field"
+              >时间<input type="time" id="taskTime" name="time" required
+            /></label>
+          </div>
+          <div class="time-presets" aria-label="快捷选择时间">
+            <button type="button" data-time="09:00">早上 09:00</button
+            ><button type="button" data-time="12:00">中午 12:00</button
+            ><button type="button" data-time="18:00">傍晚 18:00</button
+            ><button type="button" data-time="21:00">晚上 21:00</button>
+          </div>
+          <div class="field-row">
+            <label class="field"
+              >放在哪一类？<select id="taskCategory" name="category">
+                <option value="life">生活小事</option>
+                <option value="work">工作安排</option>
+                <option value="study">学习成长</option>
+                <option value="health">照顾自己</option>
+              </select></label
+            ><label class="field"
+              >重要程度<select id="taskPriority" name="priority">
+                <option value="normal">按平常节奏</option>
+                <option value="high">这件很重要</option>
+                <option value="low">不着急，慢慢来</option>
+              </select></label
+            >
+          </div>
+          <label class="field"
+            >补充两句 <span class="optional">选填</span
+            ><textarea
+              id="taskNotes"
+              name="notes"
+              rows="3"
+              maxlength="2000"
+              placeholder="地点、要带的东西，或者给自己的小提示"
+            ></textarea>
+          </label>
+          <label class="reminder-option"
+            ><span class="reminder-copy"
+              ><strong>到点，让小满提醒我</strong
+              ><small id="reminderHint">通过已连接的微信发送提醒</small></span
+            ><input
+              type="checkbox"
+              id="taskReminder"
+              name="reminder_enabled"
+              checked
+              role="switch" /><span
+              class="switch-track"
+              aria-hidden="true"
+            ></span
+          ></label>
+          <p id="formError" class="form-error" role="alert" hidden></p>
+          <button type="button" id="formReload" class="text-button" hidden>
+            重新加载并核对日程
+          </button>
+        </div>
+        <footer class="dialog-footer">
+          <span id="saveHint">安排好了，也可以随时调整。</span
+          ><button type="submit" id="saveTask" class="primary-button">
+            <svg class="icon"><use href="#i-check" /></svg><span>保存日程</span>
+          </button>
+        </footer>
+      </form>
+    </dialog>
+    <script src="/static/schedule.js" defer></script>
+  </body>
 </html>

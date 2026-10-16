@@ -40,11 +40,11 @@ def check_due_tasks() -> None:
     db = SessionLocal()
     try:
         tasks = db.scalars(
-            select(Task).where(Task.status.in_(["open", "snoozed"]), Task.due_at <= now)
+            select(Task).where(Task.status.in_(["open", "snoozed"]), Task.due_at <= now, Task.reminder_enabled.is_(True))
         ).all()
         for task in tasks:
             db.refresh(task)
-            if task.status not in {"open", "snoozed"} or task.due_at > now:
+            if task.status not in {"open", "snoozed"} or task.due_at > now or not task.reminder_enabled:
                 continue
             existing = db.scalar(
                 select(Reminder).where(

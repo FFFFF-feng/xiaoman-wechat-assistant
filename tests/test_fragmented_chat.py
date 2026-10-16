@@ -46,6 +46,7 @@ class FragmentedChatTests(TestCase):
     def test_multiple_tasks_or_conflicting_times_ask_once_before_mutation(self):
         for n, text in enumerate(('明天十点提醒我写周报\n明天十一点提醒我喝水',
                                   '明天十点提醒我写周报\n改成十一点',
+                                  '中午提醒我取快递\n改成13:00',
                                   '明天十点提醒我写周报\n不对，后天')):
             result = self.send(text, mid=f'batch-conflict-{n}')
             self.assertEqual(result.json()['action'], 'clarify')
