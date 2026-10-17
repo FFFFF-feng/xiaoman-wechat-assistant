@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { resolveSticker } from './sticker-assets.js';
 
 // Runs inside the Gateway. The installed Tencent channel owns credentials,
 // context tokens and its provider API; this worker never reads or calls iLink.
@@ -10,7 +11,11 @@ export function createWelcomePump(config, deps) {
   return createOutboxPump(config, deps, '/welcome');
 }
 
-function createOutboxPump(config, deps, prefix) {
+export function createStickerPump(config, deps) {
+  return createOutboxPump(config, deps, '/stickers', true);
+}
+
+function createOutboxPump(config, deps, prefix, media = false) {
   const read = deps.readFile ?? readFile;
   const fetchLocal = deps.fetch ?? globalThis.fetch;
   const logger = deps.logger ?? { info() {}, warn() {} };
@@ -42,24 +47,27 @@ function createOutboxPump(config, deps, prefix) {
       let result;
       try {
         const adapter = await deps.loadAdapter('openclaw-weixin');
-        if (typeof adapter?.sendText !== 'function') throw new Error('channel-adapter-unavailable');
+        if (typeof adapter?.[media ? 'sendMedia' : 'sendText'] !== 'function') throw new Error('channel-adapter-unavailable');
         item = (await post(`${prefix}/claim`, {}, signal)).delivery;
         if (!item) return;
         const bindings = JSON.parse(await read(config.bindingsFile, 'utf8'));
         const allowed = Array.isArray(bindings) && bindings.some(v => v.account_id === item.account_id && v.sender_id === item.sender_id);
-        if (!allowed || typeof item.text !== 'string' || !item.text || item.text.length > 4000 || signal?.aborted) {
+        if (!allowed || typeof item.text !== 'string' || (!media && !item.text) || item.text.length > 4000 || signal?.aborted) {
           // No send has begun; the claim will expire or be cancelled by the backend.
           logger.warn('Xiaoman reminder claim not sent: binding/content/service checks failed.');
           return;
         }
+        const asset = media ? await (deps.resolveSticker ?? resolveSticker)(item.sticker_id) : null;
         await post(`${prefix}/${item.id}/start`, { claim_token: item.claim_token }, signal);
         sending = true;
         if (signal?.aborted) {
           result = { outcome: 'failed', error_code: 'service_stopped_before_send' };
         } else {
           try {
-            const receipt = await adapter.sendText({ cfg: deps.hostConfig, to: item.sender_id,
-              text: item.text, accountId: item.account_id });
+            const target = { cfg: deps.hostConfig, to: item.sender_id, text: item.text, accountId: item.account_id };
+            const receipt = media
+              ? await adapter.sendMedia({ ...target, text: '', mediaUrl: asset.file, mediaLocalRoots: [asset.root] })
+              : await adapter.sendText(target);
             result = receipt?.messageId && !['failed', 'cancelled', 'suppressed', 'unknown'].includes(receipt.outcome)
               ? { outcome: 'accepted', message_id: String(receipt.messageId).slice(0, 100) }
               : { outcome: 'failed', error_code: 'no_platform_acceptance' };

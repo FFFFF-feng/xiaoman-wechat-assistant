@@ -146,6 +146,35 @@ class ClawbotDelivery(Base):
     error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
+class ClawbotStickerPreference(Base):
+    __tablename__ = "clawbot_sticker_preferences"
+    owner_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    daily_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    chat_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    daily_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_active_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class ClawbotStickerDelivery(Base):
+    """Images have a separate outbox; no fake reminder, arbitrary URL or file path."""
+    __tablename__ = "clawbot_sticker_deliveries"
+    __table_args__ = (UniqueConstraint("owner_id", "event_key"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    event_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    sticker_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    claim_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class ClawbotInvitation(Base):
     """Single-user enrollment capability. No raw invitation, Weixin token or pairing code."""
     __tablename__ = "clawbot_invitations"

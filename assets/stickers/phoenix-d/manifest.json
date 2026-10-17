@@ -1,0 +1,32 @@
+{
+  "morning": {
+    "file": "morning.png",
+    "caption": "早呀",
+    "sha256": "ae8de3524051770996d537c5ca932ed199a0ab26f34eeeec74da1fdc38131697"
+  },
+  "received": {
+    "file": "received.png",
+    "caption": "收到",
+    "sha256": "2572204dfa307724ee2a379790003e1a8e2eb262354cc40c0bcc2f310aa14c80"
+  },
+  "cheer": {
+    "file": "cheer.png",
+    "caption": "加油",
+    "sha256": "4530540d5c9b9e674e4889784f4263726891dc7c94a3a85065126fd95f9e0398"
+  },
+  "rest": {
+    "file": "rest.png",
+    "caption": "歇一下",
+    "sha256": "d40142c8ec92d1a6ae4f30476027b6ce4d548a8232037c6e3bb2240c3c7ce6c5"
+  },
+  "thanks": {
+    "file": "thanks.png",
+    "caption": "谢谢你",
+    "sha256": "44241fed7222380dfb092674a166a76e5bf48a356ebc169024037945afa12ade"
+  },
+  "goodnight": {
+    "file": "goodnight.png",
+    "caption": "晚安",
+    "sha256": "fea6e869e9772bb337b557ef3b9548c70241ef5d2e47bf7ebff2d61f8587cfaa"
+  }
+}

@@ -31,6 +31,7 @@ from .clawbot_bindings import load_bindings
 from . import materials
 from . import record_import
 from . import clawbot_welcome
+from . import clawbot_stickers
 
 router = APIRouter(prefix="/api/internal/clawbot", include_in_schema=False)
 logger = logging.getLogger(__name__)
@@ -77,9 +78,20 @@ def authenticate(authorization: str | None = Header(default=None)) -> None:
 
 def wants_schedule(content: str) -> bool:
     normalized = re.sub(r"[\s，,。.!！?？]", "", content)
-    return normalized in {"我的日程", "日程记录", "日程页面", "日程页"} or bool(
-        re.fullmatch(r"(?:打开|查看|进入|看看)(?:我的)?(?:日程|日程记录|日程页面|日程页|日程表)", normalized)
+    if normalized in {"我的日程", "日程记录", "日程页面", "日程页", "我的日历", "日历页面", "日历页"}:
+        return True
+    # Match complete requests, including polite/conversational wrappers. Do not
+    # strip negation, quotes, dates or extra instructions into an opening request.
+    prefix = r"(?:小满)?(?:(?:请|麻烦你?|劳驾|能不能|可不可以|可以|能|帮我|替我|给我|我想要|我想|我要)){0,5}"
+    target = r"(?:我的|我自己的)?(?:日程(?:记录|页面|页|表)?|日历(?:页面|页)?)(?:链接|入口)?"
+    action = r"(?:打开|查看|看看|看|进入|访问|跳转到)(?:一下|一眼|下)?"
+    request = (
+        rf"(?:{action}{target}"
+        rf"|(?:把|将){target}(?:给我)?(?:打开|调出来)(?:一下|下)?"
+        r"|(?:发我|发给我|给我|发一下|发下|发送|发)(?:我的)?(?:日程|日历)(?:链接|入口)(?:给我)?)"
     )
+    suffix = r"(?:一下|看看|给我看看|让我看看)?(?:吧|呀|啊|呢|吗|好吗|好么|可以吗|行吗|可以么)?"
+    return re.fullmatch(prefix + request + suffix, normalized) is not None
 
 
 def wants_branding(content: str) -> bool:
@@ -109,11 +121,12 @@ def _cached(record: ClawbotMessage, payload: BridgeRequest, db: Session, base_ur
     if record.status != "processed" or not record.response_json:
         raise HTTPException(409, "消息处理结果不确定，请先查询待办，不要重复创建")
     # 授权链接不存历史；重复投递可重新签发同一用户的短期链接。
-    if wants_schedule(payload.content):
+    cached = ChatResponse.model_validate_json(record.response_json)
+    if cached.action == "schedule" and wants_schedule(payload.content):
         return schedule_reply(db, record.owner_id, base_url)
     if wants_branding(payload.content):
         return branding_reply(base_url)
-    return ChatResponse.model_validate_json(record.response_json)
+    return cached
 
 
 def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -> ChatResponse:
@@ -144,6 +157,7 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
             raise HTTPException(409, "消息正在处理") from None
         record_id = record.id
         try:
+            clawbot_stickers.touch(db, owner)
             imported = record_import.collect(db, owner, payload.content)
             if imported is not None:
                 if not any(v["account_id"] == payload.account_id and v["sender_id"] == payload.sender_id for v in load_bindings()):
@@ -153,6 +167,8 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
                 response = branding_reply(base_url)
             elif wants_schedule(payload.content):
                 response = schedule_reply(db, owner, base_url)
+            elif (sticker_response := clawbot_stickers.command(db, owner, payload.content, message_key)) is not None:
+                response = sticker_response
             elif materials.wants_record_import(payload.content):
                 if os.getenv("CLAWBOT_MATERIALS_ENABLED", "true").lower() != "true":
                     response = ChatResponse(action="material_error", reply="资料识别已停用，请先发普通文字。")
@@ -167,7 +183,9 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
                         response = ChatResponse(action="material_error", reply=str(error) + "；未创建提醒。")
             else:
                 response = handle_chat_message(payload.content, db, conversation_id=owner)
-            saved = response.model_copy(update={"reply": "[日程链接已发送；授权令牌未保存]"}) if wants_schedule(payload.content) and base_url else response
+                if response.action == "chat":
+                    clawbot_stickers.maybe_chat(db, owner, payload.content, message_key)
+            saved = response.model_copy(update={"reply": "[日程链接已发送；授权令牌未保存]"}) if response.action == "schedule" and base_url else response
             record.reply_content = saved.reply
             record.response_json = saved.model_dump_json()
             record.processed_at = datetime.now()
@@ -190,7 +208,26 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
 def health():
     return {"status": "ok", "service": "xiaoman-clawbot", "bindings": len(load_bindings()),
             "instance": hashlib.sha256(os.environ["CLAWBOT_BRIDGE_TOKEN"].encode()).hexdigest()[:16],
-            "proactive_reminders": clawbot_delivery.enabled(), "reminders": clawbot_delivery.status()}
+            "proactive_reminders": clawbot_delivery.enabled(), "reminders": clawbot_delivery.status(),
+            "stickers_enabled": clawbot_stickers.enabled()}
+
+
+@router.post("/stickers/claim", dependencies=[Depends(authenticate)])
+def claim_sticker(db: Session = Depends(get_db)):
+    return {"delivery": clawbot_stickers.claim(db, load_bindings())}
+
+
+@router.post("/stickers/{delivery_id}/start", dependencies=[Depends(authenticate)])
+def start_sticker(delivery_id: int, payload: DeliveryLease, db: Session = Depends(get_db)):
+    clawbot_stickers.begin_send(db, delivery_id, payload.claim_token, load_bindings())
+    return {"send": True}
+
+
+@router.post("/stickers/{delivery_id}/result", dependencies=[Depends(authenticate)])
+def result_sticker(delivery_id: int, payload: DeliveryResult, db: Session = Depends(get_db)):
+    clawbot_stickers.complete_send(db, delivery_id, payload.claim_token, payload.outcome,
+                                 payload.message_id, payload.error_code)
+    return {"ok": True}
 
 
 @router.post("/outbox/claim", dependencies=[Depends(authenticate)])

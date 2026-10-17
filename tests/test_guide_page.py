@@ -22,6 +22,9 @@ class GuidePageTests(TestCase):
         self.assertIn('清空此功能消息记录', body)
         self.assertNotIn('fetch(', body)
         self.assertIn('一分钟后提醒我喝水', body)
+        self.assertIn('帮我打开一下我的日程', body)
+        self.assertIn('id="updates"', body)
+        self.assertIn('关闭表情包', body)
         self.assertEqual(response.headers['referrer-policy'], 'no-referrer')
 
     def test_avatar_and_page_served_through_gateway_without_expanding_private_access(self):
@@ -34,8 +37,10 @@ class GuidePageTests(TestCase):
                 self.assertEqual(proxy.get('/guide').status_code, 200)
                 image = proxy.get('/static/xiaoman-avatar.jpg')
                 self.assertEqual(image.status_code, 200)
-                self.assertTrue(image.content.startswith(b'\xff\xd8'))
-                self.assertEqual(image.headers['content-type'], 'image/jpeg')
+                self.assertTrue(image.content.startswith(b'\x89PNG\r\n\x1a\n'))
+                self.assertEqual(image.headers['content-type'], 'image/png')
+                self.assertEqual(image.headers['cache-control'], 'no-store')
+                self.assertIn('.png', image.headers['content-disposition'])
                 for path in ('/guide', '/static/xiaoman-avatar.jpg'):
                     self.assertEqual(proxy.post(path).status_code, 404)
         self.assertFalse(allowed_path('/static/guide.js', 'GET', schedule_only=True))

@@ -15,10 +15,14 @@
       message.textContent = '正在复制…';
       try {
         await navigator.clipboard.writeText(text);
-        message.textContent = '已复制。回到微信粘贴并发送；这里没有执行任何操作。';
+        message.textContent = button.dataset.copyDestination === 'name'
+          ? '已复制“小满”。回到 ClawBot 设置，打开“备注名”，粘贴并保存。'
+          : '已复制。回到微信粘贴并发送；这里没有执行任何操作。';
         timer = setTimeout(() => { panel.hidden = true; }, 6500);
       } catch {
-        message.textContent = '浏览器不允许自动复制，请长按下面的文字复制：';
+        message.textContent = button.dataset.copyDestination === 'name'
+          ? '请长按下面的名称复制，再到 ClawBot 设置的“备注名”中粘贴并保存：'
+          : '浏览器不允许自动复制，请长按下面的文字复制：';
         fallback.value = text;
         fallback.hidden = false;
         fallback.focus();

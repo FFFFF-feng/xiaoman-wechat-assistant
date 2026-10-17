@@ -64,6 +64,57 @@ class ClawbotBridgeTests(TestCase):
             for method in ("GET", "POST"):
                 self.assertFalse(allowed_path(path, method))
 
+    def test_schedule_accepts_natural_requests_but_not_other_intents_or_quotes(self):
+        positive = [
+            "打开一下我的日程", "帮我看看日程", "帮我打开一下我的日程",
+            "小满，能不能帮我打开下日程看看呀？", "请打开我的日程页面",
+            "我想看一下我的日程", "可以帮我进入一下日程页吗", "把我的日程打开",
+            "麻烦你把我自己的日程表打开一下吧", "发我日程链接", "给我我的日程链接",
+            "给我发一下日程链接", "日程页面", "我的日程", "打开我的日历",
+        ]
+        # The common standalone "吗" is a question particle, not an extra action.
+        for text in positive:
+            with self.subTest(text=text):
+                self.assertTrue(clawbot_router.wants_schedule(text))
+        negative = [
+            "不要打开我的日程", "不用帮我打开日程", "别打开日程", "能不能不打开日程",
+            "“打开一下我的日程”", "他说帮我看看日程", "总结聊天记录：帮我看看日程",
+            "今天有什么日程", "明天有什么安排", "查看今天的日程", "帮我安排明天的日程",
+            "打开张三的日程", "打开我的日程然后删除所有任务", "日程链接安全吗",
+        ]
+        for text in negative:
+            with self.subTest(text=text):
+                self.assertFalse(clawbot_router.wants_schedule(text))
+
+    def test_natural_schedule_request_issues_private_link_without_model_or_task(self):
+        with patch.dict("os.environ", {"PUBLIC_BASE_URL": "https://example.com"}), \
+                patch("app.clawbot_router.handle_chat_message") as chat:
+            text = "小满，帮我打开一下我的日程吧"
+            response = self.send(text)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["action"], "schedule")
+            token = re.search(r"#access=([A-Za-z0-9_-]+)", response.json()["reply"])[1]
+            with self.sessions() as db:
+                record = db.scalar(select(ClawbotMessage))
+                self.assertNotIn(token, record.response_json)
+                self.assertNotIn(token, record.reply_content)
+                self.assertEqual(schedule_owner(f"Bearer {token}", db), clawbot_owner("bot", "Alice"))
+                self.assertEqual(db.scalar(select(func.count()).select_from(Task)), 0)
+            repeated = self.send(text)
+            self.assertIn("[点击打开我的日程](https://example.com/schedule#access=", repeated.json()["reply"])
+            chat.assert_not_called()
+
+    def test_schedule_words_in_import_do_not_open_link_on_delivery_or_replay(self):
+        with patch.dict("os.environ", {"PUBLIC_BASE_URL": "https://example.com"}):
+            self.send("整理聊天记录", mid="start")
+            text = "帮我打开一下我的日程"
+            response = self.send(text)
+            self.assertEqual(response.json()["action"], "import_collect")
+            self.assertNotIn("#access=", response.json()["reply"])
+            self.assertEqual(self.send(text).json(), response.json())
+            with self.sessions() as db:
+                self.assertEqual(db.scalar(select(func.count()).select_from(ScheduleAccess)), 0)
+
     def test_validation_binding_and_limits(self):
         self.assertEqual(self.send(owner_id="wechat:other").status_code, 422)
         self.assertEqual(self.send(user="alice").status_code, 403)

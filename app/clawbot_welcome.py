@@ -29,7 +29,7 @@ def activate(db, owner):
 def guide_reply(base_url):
     if not base_url:
         return "引导网页暂时不可用。你可以在 ClawBot 设置中手动修改头像和备注名为“小满”。先试试“查询待办”；网页恢复后再发“使用指南”。"
-    return f"[点击查看小满使用指南]({base_url}/guide)\n教你设置头像和“小满”备注名，也能复制聊天、语音和提醒的体验示例。网页不会自动修改微信资料。"
+    return f"[点击查看小满使用指南]({base_url}/guide)\n保存红色小凤鸟头像，再把 ClawBot 备注为“小满”。按指南里的三步设置，也可以直接体验聊天、待办和提醒。网页不会自动修改微信资料。"
 
 
 def recover(db, now):

@@ -98,6 +98,8 @@ def create_gateway(upstream_port: int = 18082, *, transport=None, schedule_only:
                     name: result.headers[name] for name in
                     ("content-type", "cache-control", "referrer-policy", "content-security-policy") if name in result.headers
                 }
+                if request.url.path == "/static/xiaoman-avatar.jpg" and "content-disposition" in result.headers:
+                    response_headers["content-disposition"] = result.headers["content-disposition"]
                 response_headers["x-content-type-options"] = "nosniff"
                 response_headers["referrer-policy"] = "no-referrer"
                 if schedule_only:

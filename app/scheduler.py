@@ -14,6 +14,8 @@ from .database import SessionLocal
 from .models import Message, Reminder, Task
 from .clawbot_identity import is_clawbot_owner
 from . import clawbot_delivery
+from . import clawbot_stickers
+from .clawbot_bindings import load_bindings
 from .wechat_notifications import NotificationBlocked, app_id, apply_receipt, reminder_mode, send_reminder
 
 logger = logging.getLogger(__name__)
@@ -109,10 +111,24 @@ def check_due_tasks() -> None:
         db.close()
 
 
+def check_daily_stickers() -> None:
+    if not clawbot_stickers.enabled():
+        return
+    db = SessionLocal()
+    try:
+        clawbot_stickers.queue_daily(db, load_bindings())
+    except Exception:
+        db.rollback()
+        logger.warning("日常表情检查失败；未重试发送")
+    finally:
+        db.close()
+
+
 def start_scheduler() -> None:
     if scheduler.running:
         return
     scheduler.add_job(check_due_tasks, "interval", seconds=CHECK_SECONDS, id="due-task-check", replace_existing=True)
+    scheduler.add_job(check_daily_stickers, "interval", seconds=30, id="daily-sticker-check", replace_existing=True)
     scheduler.start()
     logger.info("提醒调度器已启动，检查间隔 %s 秒", CHECK_SECONDS)
 

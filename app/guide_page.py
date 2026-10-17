@@ -30,5 +30,8 @@ def guide_page_response():
 
 @router.get("/static/xiaoman-avatar.jpg")
 def guide_avatar():
-    return FileResponse(WEB / "xiaoman-avatar.jpg", media_type="image/jpeg",
-        headers={"X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"})
+    # Preserve the public legacy URL and proxy allowlist; serve the selected PNG unchanged.
+    return FileResponse(WEB / "xiaoman-avatar.png", media_type="image/png",
+        filename="小满头像.png", content_disposition_type="inline",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                 "Referrer-Policy": "no-referrer"})
