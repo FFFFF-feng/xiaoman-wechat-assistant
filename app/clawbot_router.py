@@ -32,6 +32,7 @@ from . import materials
 from . import record_import
 from . import clawbot_welcome
 from . import clawbot_stickers
+from . import clawbot_announcements
 
 router = APIRouter(prefix="/api/internal/clawbot", include_in_schema=False)
 logger = logging.getLogger(__name__)
@@ -165,6 +166,8 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
                 response = imported
             elif wants_branding(payload.content):
                 response = branding_reply(base_url)
+            elif (announcement_response := clawbot_announcements.command(payload.content, base_url)) is not None:
+                response = announcement_response
             elif wants_schedule(payload.content):
                 response = schedule_reply(db, owner, base_url)
             elif (sticker_response := clawbot_stickers.command(db, owner, payload.content, message_key)) is not None:
@@ -215,6 +218,28 @@ def health():
 @router.post("/stickers/claim", dependencies=[Depends(authenticate)])
 def claim_sticker(db: Session = Depends(get_db)):
     return {"delivery": clawbot_stickers.claim(db, load_bindings())}
+
+
+@router.get("/announcements/status", dependencies=[Depends(authenticate)])
+def announcement_status(db: Session = Depends(get_db)):
+    return clawbot_announcements.status(db)
+
+
+@router.post("/announcements/claim", dependencies=[Depends(authenticate)])
+def claim_announcement(request: Request, db: Session = Depends(get_db)):
+    return {"delivery": clawbot_announcements.claim(db, load_bindings(), public_base_url(request))}
+
+
+@router.post("/announcements/{delivery_id}/start", dependencies=[Depends(authenticate)])
+def start_announcement(delivery_id: int, payload: DeliveryLease, db: Session = Depends(get_db)):
+    clawbot_announcements.begin_send(db, delivery_id, payload.claim_token, load_bindings())
+    return {"send": True}
+
+
+@router.post("/announcements/{delivery_id}/result", dependencies=[Depends(authenticate)])
+def result_announcement(delivery_id: int, payload: DeliveryResult, db: Session = Depends(get_db)):
+    clawbot_announcements.complete_send(db, delivery_id, payload.claim_token, payload.outcome, payload.message_id, payload.error_code)
+    return {"ok": True}
 
 
 @router.post("/stickers/{delivery_id}/start", dependencies=[Depends(authenticate)])

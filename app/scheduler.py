@@ -15,6 +15,7 @@ from .models import Message, Reminder, Task
 from .clawbot_identity import is_clawbot_owner
 from . import clawbot_delivery
 from . import clawbot_stickers
+from . import clawbot_announcements
 from .clawbot_bindings import load_bindings
 from .wechat_notifications import NotificationBlocked, app_id, apply_receipt, reminder_mode, send_reminder
 
@@ -124,11 +125,25 @@ def check_daily_stickers() -> None:
         db.close()
 
 
+def check_release_announcements() -> None:
+    if not clawbot_announcements.enabled():
+        return
+    db = SessionLocal()
+    try:
+        clawbot_announcements.queue_release(db, load_bindings())
+    except Exception:
+        db.rollback()
+        logger.warning("更新通知登记失败；未修改已发布内容")
+    finally:
+        db.close()
+
+
 def start_scheduler() -> None:
     if scheduler.running:
         return
     scheduler.add_job(check_due_tasks, "interval", seconds=CHECK_SECONDS, id="due-task-check", replace_existing=True)
     scheduler.add_job(check_daily_stickers, "interval", seconds=30, id="daily-sticker-check", replace_existing=True)
+    scheduler.add_job(check_release_announcements, "interval", seconds=30, id="release-announcement-check", replace_existing=True)
     scheduler.start()
     logger.info("提醒调度器已启动，检查间隔 %s 秒", CHECK_SECONDS)
 

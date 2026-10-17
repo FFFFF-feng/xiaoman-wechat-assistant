@@ -19,7 +19,8 @@ from .schedule_access import utc_now
 from .schemas import ChatResponse
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets/stickers/phoenix-d"
-CAPTIONS = {"morning":"早呀", "received":"收到", "cheer":"加油", "rest":"歇一下", "thanks":"谢谢你", "goodnight":"晚安"}
+CAPTIONS = {"morning":"早呀", "received":"收到", "cheer":"加油", "rest":"歇一下", "thanks":"谢谢你", "goodnight":"晚安",
+            "laugh":"哈哈哈", "hug":"抱抱", "here":"在呢", "sad":"委屈", "okay":"好哒", "comfort":"辛苦啦", "wait":"等等我", "go":"出发"}
 LOCAL = ZoneInfo("Asia/Shanghai")
 
 
@@ -94,7 +95,8 @@ def enqueue(db, owner, sticker, event, source, now, expires=None):
 
 def command(db, owner, text, message_key):
     value = normalized(text)
-    request = re.fullmatch(r"(?:给我(?:一个)?|发个|来个|发送|发一张)(早呀|早安|收到|加油|歇一下|谢谢你|谢谢|晚安)(?:表情|表情包)", value)
+    names = '|'.join(map(re.escape, sorted([*CAPTIONS.values(), '早安', '谢谢'], key=len, reverse=True)))
+    request = re.fullmatch(r"(?:给我(?:一个)?|发个|来个|发送|发一张)(" + names + r")(?:表情|表情包)", value)
     manual_id = None
     if request:
         caption = {"早安":"早呀", "谢谢":"谢谢你"}.get(request[1], request[1])
@@ -103,7 +105,8 @@ def command(db, owner, text, message_key):
         manual_id = "received"
     switches = {"开启日常表情":("daily_enabled",True), "关闭日常表情":("daily_enabled",False),
                 "开启聊天表情":("chat_enabled",True), "关闭聊天表情":("chat_enabled",False)}
-    stop_all = value in {"关闭表情包", "不要再发表情", "不要再发表情包", "别发表情了", "别再发表情包", "关闭表情"}
+    stop_all = (value in {"关闭表情包", "不要再发表情", "不要再发表情包", "别发表情了", "别再发表情包", "关闭表情"}
+                or re.fullmatch(r'(?:请|麻烦你|你能|能不能|可以)?(?:以后)?(?:不要|别)(?:再)?(?:给我)?发(?:送)?表情(?:包)?(?:了)?(?:吗)?', value) is not None)
     start_all = value in {"开启表情包", "恢复表情包", "可以发表情了"}
     if value not in switches and value not in {"表情包", "表情设置", "小满表情包"} and not manual_id and not stop_all and not start_all:
         return None
@@ -145,25 +148,60 @@ def command(db, owner, text, message_key):
                 return reply("日常表情已经开启，仍按北京时间每天9点尝试问候；不会因为重复开启多发。")
             return reply("已开启日常表情：从明天起，每天北京时间9点尝试发一张早安表情，错过不补发。随时说“关闭日常表情”。" if on
                          else "日常表情已关闭，后续不再自动问早安。想看时仍可直接索取。")
-        return reply("聊天表情已开启。打招呼、道谢或说晚安时会配一张，不设次数和冷却限制。随时说“关闭聊天表情”。" if on
+        return reply("聊天表情已开启。打招呼、分享心情和普通闲聊都会搭配合适的表情，不设次数和冷却限制。随时说“关闭聊天表情”。" if on
                      else "聊天表情已关闭，正常文字回复不受影响。")
     if manual_id:
         now = utc_now()
         if not enqueue(db, owner, manual_id, "manual:"+message_key, "manual", now):
             return reply("这张表情暂时不可用，没有安排发送。")
         return reply("“"+CAPTIONS[manual_id]+"”表情已加入发送队列。若图片没到，请稍后再看，平台受理不代表已经送达。")
-    return reply("可以说“给我收到表情包”，也有早呀、加油、歇一下、谢谢你、晚安。\n聊天配图："+
+    return reply("想看哪张，直接说“给我抱抱表情包”。现在有："+'、'.join(CAPTIONS.values())+"。\n聊天配图："+
                  ("开" if pref.chat_enabled else "关")+"；每日9点问候："+("开" if pref.daily_enabled else "关")+
                  "。默认自动开启，不设次数和冷却限制。说“关闭表情包”暂停，说“开启表情包”恢复，也可分别开关聊天和日常表情。")
+
+
+def choose_sticker(text, message_key, previous=None):
+    value = normalized(text).lower()
+    if (len(value) > 600 or re.search(r'[“”「」<>\"`]', value)
+            or re.search(r'急救|报警|自杀|不想活|受伤|车祸|火灾|胸痛|去世|讣告|紧急', value)):
+        return None
+    candidates = None
+    for pattern, choices in [
+        (r'难过|伤心|想哭|委屈|不开心|不高兴|失落|心情不好|难受|烦躁', ['hug', 'comfort', 'here']),
+        (r'呜呜|嘤嘤', ['sad', 'hug']),
+        (r'辛苦|好累|太累|有点累|很累|加班|压力好大|忙死|困了', ['comfort', 'rest', 'hug']),
+        (r'早安|早上好|早呀', ['morning']),
+        (r'晚安|睡觉了|睡啦', ['goodnight']),
+        (r'谢谢|感谢|多谢', ['thanks']),
+        (r'哈哈|笑死|笑哭|好好笑|太逗|好开心|好高兴|太开心', ['laugh', 'cheer', 'okay']),
+        (r'加油|能行|要努力|坚持住', ['cheer', 'okay']),
+        (r'等等|等一下|稍等|等我', ['wait']),
+        (r'出发|走啦|出门了|上班去|下班了', ['go', 'cheer']),
+        (r'在吗|你好|嗨|聊聊|陪我|无聊|小满', ['here', 'hug', 'received']),
+        (r'^(?:好的|好呀|好哒|行|嗯嗯|没问题|ok|可以)$', ['okay', 'received']),
+    ]:
+        if re.search(pattern, value):
+            candidates = choices; break
+    if candidates is None:
+        # Ordinary conversation gets an image too; information-heavy questions
+        # and urgent/sensitive situations keep the words in the foreground.
+        if re.search(r'解释|代码|函数|sql|步骤|方案|分析|多少钱|是什么|为什么|如何|请问|怎么|不发.*表情|别.*表情|不要.*表情', value):
+            return None
+        candidates = ['here', 'received', 'okay']
+    choices = [item for item in candidates if item != previous] or candidates
+    return choices[int(hashlib.sha256(message_key.encode()).hexdigest()[:8], 16) % len(choices)]
 
 
 def maybe_chat(db, owner, text, message_key):
     if not enabled():
         return
     pref = db.get(Preference, owner)
-    sticker = {"早安":"morning", "早上好":"morning", "谢谢":"thanks", "谢谢你":"thanks", "晚安":"goodnight", "加油":"cheer"}.get(normalized(text))
     now = utc_now()
-    if not pref or not pref.chat_enabled or not sticker:
+    if not pref or not pref.chat_enabled:
+        return
+    previous = db.scalar(select(Delivery.sticker_id).where(Delivery.owner_id == owner, Delivery.source == 'chat').order_by(Delivery.id.desc()).limit(1))
+    sticker = choose_sticker(text, message_key, previous)
+    if not sticker:
         return
     enqueue(db, owner, sticker, "chat:"+message_key, "chat", now)
 

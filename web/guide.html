@@ -11,7 +11,7 @@
 <main>
   <header>
     <a class="brand" href="#top"><img src="/static/xiaoman-avatar.jpg?v=phoenix-a-20261016" alt="" width="40" height="40" />小满</a>
-    <nav aria-label="指南导航"><a href="#setup">设置头像与名字</a><a href="#try">试试小满</a><a href="#updates">本次更新</a></nav>
+    <nav aria-label="指南导航"><a href="#setup">设置头像与名字</a><a href="#try">试试小满</a><a href="#updates">更新板</a></nav>
   </header>
   <section id="top" class="intro">
     <div>
@@ -58,6 +58,7 @@
     <p class="sub">下面的按钮只复制文字。回到微信粘贴并发送后才会执行，建议逐条体验。</p>
     <div class="experiences">
       <article><h3>先聊两句</h3><p>说说今天的心情，或者让小满帮你整理想法。</p><blockquote>你好，小满，我今天有点累</blockquote><button type="button" data-copy="你好，小满，我今天有点累">复制聊天示例</button></article>
+      <article><h3>聊着聊着，来张小凤鸟</h3><p>日常闲聊默认搭配图片表情，不只认早安和谢谢。也可以点一张：「给我抱抱表情包」。说「关闭表情包」暂停自动配图和早安，说「开启表情包」恢复。</p><button type="button" data-copy="给我抱抱表情包">复制表情示例</button></article>
       <article><h3>试一次到点提醒</h3><p>先用一分钟的小测试，确认微信能收到提醒。</p><blockquote>一分钟后提醒我喝水</blockquote><button type="button" data-copy="一分钟后提醒我喝水">复制提醒示例</button><p class="hint">发送后会创建真实测试待办。核对回复里的时间，一分钟后检查提醒是否收到。</p></article>
       <article><h3>看看自己的待办</h3><p>查看未完成任务和时间，不用再次创建提醒。</p><blockquote>查询待办</blockquote><button type="button" data-copy="查询待办">复制查询示例</button></article>
       <article><h3>用语音记下来</h3><p>在微信长按语音按钮，说「两分钟后提醒我喝水」。核对识别文字、任务和时间，再等提醒。</p><p class="hint">此功能需要部署方启用语音识别。语音会发送给百炼识别；若提示未启用或识别失败，请改用文字。</p></article>
@@ -65,16 +66,7 @@
       <article><h3>整理图片、文档和聊天</h3><p>发一张清晰截图或支持的文档，请小满提炼要点。整理一段聊天时，先发「整理聊天记录」，按提示粘贴文字并结束收集。</p><button type="button" data-copy="整理聊天记录">复制整理入口</button><p class="hint">合并转发卡片的正文不一定能被插件读取，可改用文字、截图或导出文件。不要上传密码或敏感资料。</p></article>
     </div>
   </section>
-  <section id="updates" class="section">
-    <h2>这次，小满多了一点表情</h2>
-    <p class="sub">2026年10月17日更新 · 新头像、日常表情和更自然的日程入口。</p>
-    <div class="experiences">
-      <article><h3>不用记住固定口令</h3><p>「打开一下我的日程」「帮我看看日程」「把我的日程打开」「发我日程链接」都可以。想在聊天里查询安排，仍可以问「今天有什么任务」。</p></article>
-      <article><h3>小凤鸟，陪你说早安</h3><p>早呀、收到、加油、歇一下、谢谢你、晚安，6张日常图片表情。聊天配图默认开启，不设次数和冷却限制。也可以直接说「给我加油表情包」。</p><button type="button" data-copy="给我加油表情包">复制表情示例</button><p class="hint">日常问候也默认开启，从开启后的第二天起，每天北京时间9点尝试发一张早安，错过不补发；实际送达受微信和网络状态影响。</p></article>
-      <article><h3>想安静一点，告诉小满就好</h3><p>说「关闭表情包」关闭自动配图和早安，关闭后会记住你的选择；说「开启表情包」一起恢复。也可分别说「关闭日常表情」「关闭聊天表情」，或发「表情设置」查看状态。关闭后，临时想看一张仍可主动索取。</p></article>
-      <article><h3>哪里用着别扭，都欢迎说</h3><p>回复太长、时间理解不对、图片没看清或页面不好操作，把发生时间、操作内容和期望结果发给邀请你体验的人。附上遮住个人信息的截图，更方便排查。</p></article>
-    </div>
-  </section>
+  <!-- RELEASE_PREVIEW -->
   <section class="section help">
     <h2>遇到问题，看看这里</h2>
     <details><summary>以前已经设置过头像，这次要重新改吗？</summary><p>新头像不会自动替换你手机里已经设置的头像。想换成红色小凤鸟，就重新保存上面的原图，再按步骤更换；继续用原头像也不影响使用。</p></details>

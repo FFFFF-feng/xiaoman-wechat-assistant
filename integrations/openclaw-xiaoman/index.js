@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { createReminderPump, createWelcomePump, createStickerPump } from './reminders.js';
+import { createReminderPump, createWelcomePump, createStickerPump, createAnnouncementPump } from './reminders.js';
 import { createMediaStore, readVoiceData } from './voice.js';
 import { readMaterialData } from './materials.js';
 import path from 'node:path';
@@ -185,6 +185,12 @@ export default {
         });
         ctx.scheduler.schedule({ id: 'deliver-stickers', delayMs: 2500, everyMs: 5000,
           run: () => stickerPump.run(ctx.scheduler.signal) });
+        const announcementPump = createAnnouncementPump(api.pluginConfig, {
+          logger: ctx.logger, hostConfig: ctx.config,
+          loadAdapter: id => api.runtime.channel.outbound.loadAdapter(id),
+        });
+        ctx.scheduler.schedule({ id: 'release-announcements', delayMs: 3500, everyMs: 5000,
+          run: () => announcementPump.run(ctx.scheduler.signal) });
         if (textQueue) {
           batchPump = createTextBatchPump(api.pluginConfig, { queue: textQueue, handle: directHandler,
             logger: ctx.logger, hostConfig: ctx.config,

@@ -41,7 +41,7 @@ function setup({outcome='accepted',rejectStart=false,unbound=false,failAck=false
 }
 
 test('fixed generated asset IDs resolve to verified local PNGs',async()=>{
-  for(const id of ['morning','received','cheer','rest','thanks','goodnight']) {
+  for(const id of ['morning','received','cheer','rest','thanks','goodnight','laugh','hug','here','sad','okay','comfort','wait','go']) {
     const asset=await resolveSticker(id);assert.equal(path.basename(asset.file),id+'.png');
   }
   for(const id of ['../../.env','https://attacker/image.png','file:///secret','unknown'])await assert.rejects(()=>resolveSticker(id));

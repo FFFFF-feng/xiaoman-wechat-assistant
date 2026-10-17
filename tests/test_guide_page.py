@@ -27,6 +27,19 @@ class GuidePageTests(TestCase):
         self.assertIn('关闭表情包', body)
         self.assertEqual(response.headers['referrer-policy'], 'no-referrer')
 
+    def test_updates_board_is_public_versioned_and_matches_notice_catalog(self):
+        from app import release_catalog
+        response=guide_page_response(view='updates');body=response.body.decode()
+        for release in release_catalog.catalog():
+            self.assertIn('v'+release.version,body)
+            self.assertIn(release.title,body)
+        self.assertIn('最近更新了什么',body)
+        self.assertIn('同一版本不会重复推送',body)
+        self.assertIn('data-copy="给我抱抱表情包"',body)
+        self.assertNotIn('fetch(',body)
+        self.assertNotIn('access=',body)
+        self.assertEqual(response.headers['cache-control'],'no-store')
+
     def test_avatar_and_page_served_through_gateway_without_expanding_private_access(self):
         app = FastAPI(); app.include_router(router)
         with TestClient(app) as upstream:

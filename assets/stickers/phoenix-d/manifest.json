@@ -28,5 +28,45 @@
     "file": "goodnight.png",
     "caption": "晚安",
     "sha256": "fea6e869e9772bb337b557ef3b9548c70241ef5d2e47bf7ebff2d61f8587cfaa"
+  },
+  "laugh": {
+    "file": "laugh.png",
+    "caption": "哈哈哈",
+    "sha256": "09c80658e04f3c04eae49891beca798e68b1aade92528a46263cc7d726f75ec3"
+  },
+  "hug": {
+    "file": "hug.png",
+    "caption": "抱抱",
+    "sha256": "70ca7612a73d27683b55837b22ef0ce6b1720e29a01d02946d1477b576b4273c"
+  },
+  "here": {
+    "file": "here.png",
+    "caption": "在呢",
+    "sha256": "994b3cfdb1b21cbff3057df8f2c4b0a86920b1ed698d13e12a4a406dec13ccdd"
+  },
+  "sad": {
+    "file": "sad.png",
+    "caption": "委屈",
+    "sha256": "5913525babd5278ac53d88428ab453f449beecb291165b56327e471361a1d08c"
+  },
+  "okay": {
+    "file": "okay.png",
+    "caption": "好哒",
+    "sha256": "60983a705bf3a00f8f7c956bf21c9a0cf769a52f293408d34e9eae9007a48e19"
+  },
+  "comfort": {
+    "file": "comfort.png",
+    "caption": "辛苦啦",
+    "sha256": "8204cb39d7893bcaec75307808cc589296fc93dab0c85cf52dc2eee270fccc41"
+  },
+  "wait": {
+    "file": "wait.png",
+    "caption": "等等我",
+    "sha256": "e8955d8ebcb7cb817c7353095547d3e3b5b4d62763aab978b73a04ab69a52e23"
+  },
+  "go": {
+    "file": "go.png",
+    "caption": "出发",
+    "sha256": "30f294bd679e5c53a083b7e9775d97cf0a98ec291ab66dc0d7d085af9457a689"
   }
 }

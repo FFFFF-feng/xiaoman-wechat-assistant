@@ -11,6 +11,10 @@ export function createWelcomePump(config, deps) {
   return createOutboxPump(config, deps, '/welcome');
 }
 
+export function createAnnouncementPump(config, deps) {
+  return createOutboxPump(config, deps, '/announcements');
+}
+
 export function createStickerPump(config, deps) {
   return createOutboxPump(config, deps, '/stickers', true);
 }

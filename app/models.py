@@ -193,6 +193,32 @@ class ClawbotInvitation(Base):
     owner_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
+class ClawbotRelease(Base):
+    __tablename__ = "clawbot_releases"
+    version: Mapped[str] = mapped_column(String(30), primary_key=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_json: Mapped[str] = mapped_column(Text, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class ClawbotAnnouncement(Base):
+    """One release notice per bound identity; separate from onboarding/reminders."""
+    __tablename__ = "clawbot_announcements"
+    __table_args__ = (UniqueConstraint("owner_id", "version"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    version: Mapped[str] = mapped_column(ForeignKey("clawbot_releases.version"), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    claim_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class ClawbotWelcome(Base):
     """One welcome per identity; uncertain native sends are never retried."""
     __tablename__ = "clawbot_welcomes"

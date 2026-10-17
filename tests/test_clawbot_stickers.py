@@ -220,3 +220,33 @@ class StickerTests(TestCase):
         for path in ('/api/internal/clawbot/stickers/claim','/api/internal/clawbot/stickers/1/start','/assets/stickers/phoenix-d/morning.png'):
             self.assertFalse(allowed_path(path,'POST',schedule_only=True))
             self.assertFalse(allowed_path(path,'GET',schedule_only=True))
+
+    def test_expanded_emotions_ordinary_chat_variety_and_stop_are_respected(self):
+        for i,text in enumerate(['哈哈哈今天好开心','我有点难过','今天有点累','出门了','等等我','随便聊几句吧','午饭吃了面条']):
+            self.send(text,mid='new-chat-'+str(i))
+        self.assertEqual(self.count(),7)
+        with self.sessions() as db:
+            rows=db.scalars(select(Delivery).order_by(Delivery.id)).all()
+            self.assertIn(rows[0].sticker_id,{'laugh','cheer','okay'})
+            self.assertIn(rows[1].sticker_id,{'hug','comfort','here'})
+            self.assertIn(rows[2].sticker_id,{'comfort','rest','hug'})
+            self.assertNotEqual(rows[-1].sticker_id,rows[-2].sticker_id)
+        self.send('关闭表情包',mid='off')
+        self.send('哈哈哈',mid='closed'); self.assertEqual(self.count(),7)
+
+    def test_all_expanded_assets_can_be_requested_and_context_avoids_bad_reactions(self):
+        for i,name in enumerate(['抱抱','哈哈哈','在呢','委屈','好哒','辛苦啦','等等我','出发']):
+            self.assertIn('发送队列',self.send('给我'+name+'表情包',mid='asset-'+str(i)).json()['reply'])
+        self.assertEqual(self.count(),8)
+        for text in ['急救应该怎么做','他去世了','解释一下这个函数','“哈哈哈”是引用内容','请不要在回复里发表情']:
+            self.assertIsNone(stickers.choose_sticker(text,'synthetic'))
+
+    def test_natural_opt_out_is_persistent_and_quotes_do_not_trigger_it(self):
+        self.send('“别再给我发表情包了”')
+        with self.sessions() as db: self.assertTrue(db.get(Preference,self.alice).chat_enabled)
+        self.send('以后不要再给我发表情包了',mid='off')
+        self.send('哈哈哈今天真开心',mid='later')
+        with self.sessions() as db:
+            pref=db.get(Preference,self.alice)
+            self.assertFalse(pref.chat_enabled); self.assertFalse(pref.daily_enabled)
+        self.assertEqual(self.count(),0)
