@@ -48,7 +48,7 @@ class AnnouncementTests(TestCase):
         for model in (ClawbotWelcome,Task,Reminder): self.assertEqual(self.count(model),0)
         first=self.claim(); second=self.claim()
         self.assertEqual({first['sender_id'],second['sender_id']},{'Alice','Bob'})
-        self.assertIn('小满更新啦',first['text']); self.assertIn('/guide?view=updates#release-0-2-2',first['text'])
+        self.assertIn('小满更新啦',first['text']); self.assertIn('/guide?view=updates#release-'+self.releases[0].version.replace('.','-'),first['text'])
         self.assertNotIn('access=',first['text']); self.assertNotIn('你好，我是小满',first['text'])
         self.assertIsNone(self.claim())
 
@@ -70,7 +70,7 @@ class AnnouncementTests(TestCase):
 
     def test_next_release_notifies_once_and_does_not_reopen_prior_delivery(self):
         self.publish()
-        new=self.releases[0].model_copy(update={'version':'0.2.3'})
+        new=self.releases[0].model_copy(update={'version':'0.2.4'})
         with patch('app.release_catalog.catalog',return_value=[new,*self.releases]):
             self.publish(); self.publish()
         self.assertEqual(self.count(),4); self.assertEqual(self.count(Published),2)

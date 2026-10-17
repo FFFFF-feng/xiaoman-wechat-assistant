@@ -61,7 +61,16 @@ function createOutboxPump(config, deps, prefix, media = false) {
           logger.warn('Xiaoman reminder claim not sent: binding/content/service checks failed.');
           return;
         }
-        const asset = media ? await (deps.resolveSticker ?? resolveSticker)(item.sticker_id) : null;
+        let asset = null;
+        if (media) {
+          try { asset = await (deps.resolveSticker ?? resolveSticker)(item.sticker_id, config.stickerAssetsDir); }
+          catch {
+            await post(`${prefix}/${item.id}/result`, { claim_token: item.claim_token,
+              outcome: 'failed', error_code: 'asset_unavailable' });
+            logger.warn(`Xiaoman ${prefix} delivery ${item.id}: fixed asset unavailable before send.`);
+            return;
+          }
+        }
         await post(`${prefix}/${item.id}/start`, { claim_token: item.claim_token }, signal);
         sending = true;
         if (signal?.aborted) {

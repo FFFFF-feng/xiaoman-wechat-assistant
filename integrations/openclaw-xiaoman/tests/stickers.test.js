@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -8,10 +9,10 @@ import { createStickerPump } from '../reminders.js';
 import { resolveSticker } from '../sticker-assets.js';
 
 const config={backendUrl:'http://127.0.0.1:18083',tokenFile:'token',bindingsFile:'bindings'};
-function setup({outcome='accepted',rejectStart=false,unbound=false,failAck=false,sticker='received',noMedia=false}={}) {
+function setup({outcome='accepted',rejectStart=false,unbound=false,failAck=false,sticker='received',noMedia=false,assetRoot}={}) {
   let claimed=false, sends=0, result;
   const paths=[];
-  const pump=createStickerPump(config,{
+  const pump=createStickerPump({...config,stickerAssetsDir:assetRoot},{
     readFile:async p=>p==='token'?'a'.repeat(64):JSON.stringify([{account_id:'bot',sender_id:unbound?'Bob':'Alice'}]),
     hostConfig:{},
     loadAdapter:async()=>noMedia?{sendText:()=>{throw Error('must not replace image with text');}}:{
@@ -62,7 +63,28 @@ test('binding removal or denied start prevents native upload',async()=>{
 
 test('unlisted sticker cannot access arbitrary paths or start delivery',async()=>{
   const t=setup({sticker:'../../.env'});await t.pump.run();
-  assert.equal(t.sends(),0);assert.equal(t.paths.length,1);
+  assert.equal(t.sends(),0);assert.equal(t.paths.length,2);
+  assert.equal(t.result().outcome,'failed');assert.equal(t.result().error_code,'asset_unavailable');
+  assert.ok(!t.paths.some(p=>p.endsWith('/start')));
+});
+
+test('configured asset root survives plugin relocation and invalid roots fail before send',async()=>{
+  const root=await mkdtemp(path.join(os.tmpdir(),'xiaoman-sticker-relocated-'));
+  const assets=fileURLToPath(new URL('../../../assets/stickers/phoenix-d/',import.meta.url));
+  try {
+    await writeFile(path.join(root,'sticker-assets.mjs'),await readFile(new URL('../sticker-assets.js',import.meta.url)));
+    const relocated=await import(pathToFileURL(path.join(root,'sticker-assets.mjs')).href);
+    await assert.rejects(()=>relocated.resolveSticker('hug'));
+    assert.equal(path.basename((await relocated.resolveSticker('hug',assets)).file),'hug.png');
+    const t=setup({assetRoot:assets});await t.pump.run();assert.equal(t.sends(),1);
+    const bad=setup({assetRoot:path.join(root,'missing')});await bad.pump.run();await bad.pump.run();
+    assert.equal(bad.sends(),0);assert.equal(bad.result().error_code,'asset_unavailable');
+    await assert.rejects(()=>resolveSticker('hug','../relative-assets'));
+  } finally {
+    assert.equal(path.dirname(path.resolve(root)),path.resolve(os.tmpdir()));
+    assert.ok(path.basename(root).startsWith('xiaoman-sticker-relocated-'));
+    await rm(root,{recursive:true,force:true});
+  }
 });
 
 test('native exception is unknown and never retried',async()=>{

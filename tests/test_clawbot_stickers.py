@@ -250,3 +250,17 @@ class StickerTests(TestCase):
             pref=db.get(Preference,self.alice)
             self.assertFalse(pref.chat_enabled); self.assertFalse(pref.daily_enabled)
         self.assertEqual(self.count(),0)
+
+    def test_asset_preflight_failure_is_terminal_without_claim_retry_loop(self):
+        self.send('给我抱抱表情包'); item=self.claim()
+        self.assertEqual(self.result(item,'failed',error_code='asset_unavailable').status_code,200)
+        self.assertIsNone(self.claim())
+        self.assertEqual(self.start(item).status_code,409)
+
+    def test_natural_sticker_request_does_not_defer_to_inaccurate_model_claims(self):
+        with patch('app.clawbot_router.handle_chat_message') as model:
+            response=self.send('咋不给我发发表情包')
+            self.assertIn('发送队列',response.json()['reply'])
+            self.assertNotIn('只能发文字',response.json()['reply'])
+            model.assert_not_called()
+        self.assertEqual(self.claim()['sticker_id'],'hug')

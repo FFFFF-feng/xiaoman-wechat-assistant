@@ -145,7 +145,8 @@ def activate_runtime(root):
                     "entries": {"openclaw-weixin": {"enabled": True}, "xiaoman-bridge": {
                         "enabled": True, "hooks": {"allowConversationAccess": True}, "config": {
                             "backendUrl": "http://127.0.0.1:18083", "tokenFile": str(private / "bridge.key"),
-                            "bindingsFile": str(private / "bindings.json")}}}})
+                            "bindingsFile": str(private / "bindings.json"),
+                            "stickerAssetsDir": str(PROJECT / "assets/stickers/phoenix-d")}}}})
     config["channels"] = {"openclaw-weixin": {"enabled": True, "quoteCache": {"enabled": False}}}
     write_private(config_path, json_text(config), replace=True)
     metadata["activated"] = True

@@ -9,6 +9,7 @@ const IDS = new Set(['morning', 'received', 'cheer', 'rest', 'thanks', 'goodnigh
 
 export async function resolveSticker(id, root = ROOT) {
   if (!IDS.has(id)) throw new Error('unlisted-sticker');
+  if (typeof root !== 'string' || !path.isAbsolute(root)) throw new Error('unsafe-sticker-root');
   const resolvedRoot = await realpath(root);
   if ((await lstat(root)).isSymbolicLink() || path.resolve(root) !== resolvedRoot) throw new Error('unsafe-sticker-root');
   const catalog = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));

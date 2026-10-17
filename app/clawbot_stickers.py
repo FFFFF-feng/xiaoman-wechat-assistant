@@ -103,6 +103,8 @@ def command(db, owner, text, message_key):
         manual_id = next(k for k,v in CAPTIONS.items() if v == caption)
     elif value in {"给我一个表情包", "发个表情包", "来个表情包", "发表情包"}:
         manual_id = "received"
+    elif re.fullmatch(r'(?:怎么|咋|为什么)(?:还)?(?:不|没|没有)(?:给我)?发(?:发)?表情(?:包)?(?:呢|呀|啊)?', value):
+        manual_id = "hug"
     switches = {"开启日常表情":("daily_enabled",True), "关闭日常表情":("daily_enabled",False),
                 "开启聊天表情":("chat_enabled",True), "关闭聊天表情":("chat_enabled",False)}
     stop_all = (value in {"关闭表情包", "不要再发表情", "不要再发表情包", "别发表情了", "别再发表情包", "关闭表情"}
@@ -290,6 +292,10 @@ def begin_send(db,item_id,token,bindings):
 def complete_send(db,item_id,token,outcome,message_id,error_code):
     item=leased(db,item_id,token)
     if item.status==outcome:
+        return
+    if item.status == 'claimed' and outcome == 'failed' and error_code == 'asset_unavailable':
+        item.status = 'failed'; item.error_code = error_code; item.finished_at = utc_now()
+        db.commit()
         return
     if item.status not in {"sending","unknown"}:
         raise HTTPException(409,"表情发送状态不允许更新")
