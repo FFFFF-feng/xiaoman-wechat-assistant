@@ -192,6 +192,8 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
                 response = handle_chat_message(payload.content, db, conversation_id=owner)
                 if response.action == "chat":
                     clawbot_stickers.maybe_chat(db, owner, payload.content, message_key)
+                else:
+                    clawbot_stickers.maybe_task_reply(db, owner, payload.content, message_key, response)
             saved = response.model_copy(update={"reply": "[日程链接已发送；授权令牌未保存]"}) if response.action == "schedule" and base_url else response
             record.reply_content = saved.reply
             record.response_json = saved.model_dump_json()

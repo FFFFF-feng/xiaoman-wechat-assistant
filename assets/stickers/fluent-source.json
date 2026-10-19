@@ -1,0 +1,245 @@
+{
+  "repository": "https://github.com/microsoft/fluentui-emoji",
+  "commit": "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc",
+  "license": "MIT",
+  "license_git_blob_sha": "9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+  "assets": [
+    {
+      "id": "fluent_cat_hello",
+      "path": "assets/Cat face/3D/cat_face_3d.png",
+      "git_blob_sha": "359506526233eef5e59be92cea4a0d4d8885e0e4",
+      "caption": "猫猫探头",
+      "scenes": [
+        "hello",
+        "okay"
+      ]
+    },
+    {
+      "id": "fluent_cat_laugh",
+      "path": "assets/Grinning cat with smiling eyes/3D/grinning_cat_with_smiling_eyes_3d.png",
+      "git_blob_sha": "9700e82f393c3153a6add856081a4ccc419632ff",
+      "caption": "猫猫开心",
+      "scenes": [
+        "happy"
+      ]
+    },
+    {
+      "id": "fluent_cat_cry",
+      "path": "assets/Crying cat/3D/crying_cat_3d.png",
+      "git_blob_sha": "1f3d0f8b157ecea16b3201ba273a2e70c50a13b1",
+      "caption": "猫猫委屈",
+      "scenes": [
+        "sad"
+      ]
+    },
+    {
+      "id": "fluent_cat_love",
+      "path": "assets/Smiling cat with heart-eyes/3D/smiling_cat_with_heart-eyes_3d.png",
+      "git_blob_sha": "f91d9397232a79fc4dfb45c2c3e8f3d137554fdd",
+      "caption": "猫猫喜欢",
+      "scenes": [
+        "love",
+        "thanks"
+      ]
+    },
+    {
+      "id": "fluent_hug",
+      "path": "assets/Hugging face/3D/hugging_face_3d.png",
+      "git_blob_sha": "98ae6dd1998a5aa43d346fbb55283748ab8234a0",
+      "caption": "3D抱抱",
+      "scenes": [
+        "comfort",
+        "love"
+      ]
+    },
+    {
+      "id": "fluent_tears",
+      "path": "assets/Face holding back tears/3D/face_holding_back_tears_3d.png",
+      "git_blob_sha": "99d074a1292f2e86e914aa2893b8aac8d6f06465",
+      "caption": "忍住眼泪",
+      "scenes": [
+        "sad"
+      ]
+    },
+    {
+      "id": "fluent_plead",
+      "path": "assets/Pleading face/3D/pleading_face_3d.png",
+      "git_blob_sha": "42f58d411ca6a3b94a9d7fa341eab014ebe8c7e1",
+      "caption": "可怜巴巴",
+      "scenes": [
+        "sad"
+      ]
+    },
+    {
+      "id": "fluent_party",
+      "path": "assets/Partying face/3D/partying_face_3d.png",
+      "git_blob_sha": "65260add29564fa533f36b9610467b51ba3e8ad4",
+      "caption": "庆祝一下",
+      "scenes": [
+        "happy",
+        "celebrate"
+      ]
+    },
+    {
+      "id": "fluent_salute",
+      "path": "assets/Saluting face/3D/saluting_face_3d.png",
+      "git_blob_sha": "2852fd1a3f208a83d34247c9da5364823601d7ef",
+      "caption": "3D收到",
+      "scenes": [
+        "okay",
+        "go"
+      ]
+    },
+    {
+      "id": "fluent_thumb",
+      "path": "assets/Thumbs up/Default/3D/thumbs_up_3d_default.png",
+      "git_blob_sha": "f179654f56b4b2bad5669cde934d7eaefe971105",
+      "caption": "给你点赞",
+      "scenes": [
+        "okay",
+        "cheer",
+        "celebrate"
+      ]
+    },
+    {
+      "id": "fluent_clap",
+      "path": "assets/Clapping hands/Default/3D/clapping_hands_3d_default.png",
+      "git_blob_sha": "88bc49a7635289b2934b59f004e72123a211423e",
+      "caption": "鼓掌鼓掌",
+      "scenes": [
+        "happy",
+        "cheer",
+        "celebrate"
+      ]
+    },
+    {
+      "id": "fluent_thanks",
+      "path": "assets/Folded hands/Default/3D/folded_hands_3d_default.png",
+      "git_blob_sha": "71ef114a33ecda99f48f838ad8367358bd8afb08",
+      "caption": "3D谢谢",
+      "scenes": [
+        "thanks"
+      ]
+    },
+    {
+      "id": "fluent_cheer",
+      "path": "assets/Flexed biceps/Default/3D/flexed_biceps_3d_default.png",
+      "git_blob_sha": "309d7374407c9a400595c97fbcbce5fb39fd320e",
+      "caption": "打起精神",
+      "scenes": [
+        "cheer",
+        "go"
+      ]
+    },
+    {
+      "id": "fluent_wave",
+      "path": "assets/Waving hand/Default/3D/waving_hand_3d_default.png",
+      "git_blob_sha": "d20006e1b5c7f314fbfdc13353ef49f879be2ce5",
+      "caption": "挥挥手",
+      "scenes": [
+        "hello",
+        "morning",
+        "go"
+      ]
+    },
+    {
+      "id": "fluent_relax",
+      "path": "assets/Face exhaling/3D/face_exhaling_3d.png",
+      "git_blob_sha": "394c32cdca4e5bd118b25488e2a588dcfc986e41",
+      "caption": "松口气",
+      "scenes": [
+        "tired"
+      ]
+    },
+    {
+      "id": "fluent_peek",
+      "path": "assets/Face with peeking eye/3D/face_with_peeking_eye_3d.png",
+      "git_blob_sha": "5c5df8dce11e3263b462ce1d40bca004c985c4eb",
+      "caption": "偷偷看看",
+      "scenes": [
+        "wait",
+        "curious"
+      ]
+    },
+    {
+      "id": "fluent_sleep",
+      "path": "assets/Sleeping face/3D/sleeping_face_3d.png",
+      "git_blob_sha": "cebf06f65f06bd534e6706f781e10edf17bf10e0",
+      "caption": "困困了",
+      "scenes": [
+        "night",
+        "tired"
+      ]
+    },
+    {
+      "id": "fluent_cool",
+      "path": "assets/Smiling face with sunglasses/3D/smiling_face_with_sunglasses_3d.png",
+      "git_blob_sha": "c0f72254c27a60ab3e874159af746cff91cb3d5a",
+      "caption": "有点小酷",
+      "scenes": [
+        "happy",
+        "celebrate"
+      ]
+    },
+    {
+      "id": "fluent_heart",
+      "path": "assets/Sparkling heart/3D/sparkling_heart_3d.png",
+      "git_blob_sha": "a25aaac14b2fd2c412384996ae766adf679c9da3",
+      "caption": "给你爱心",
+      "scenes": [
+        "comfort",
+        "love",
+        "thanks"
+      ]
+    },
+    {
+      "id": "fluent_dog",
+      "path": "assets/Dog face/3D/dog_face_3d.png",
+      "git_blob_sha": "2ecdd9549aa1419d4fcef2f3b016e1efda83271c",
+      "caption": "狗狗陪你",
+      "scenes": [
+        "hello",
+        "comfort"
+      ]
+    },
+    {
+      "id": "fluent_rabbit",
+      "path": "assets/Rabbit face/3D/rabbit_face_3d.png",
+      "git_blob_sha": "18a04ae712c7b5b8f2bb94c770c8a6f9e782699a",
+      "caption": "兔兔陪你",
+      "scenes": [
+        "hello",
+        "comfort"
+      ]
+    },
+    {
+      "id": "fluent_panda",
+      "path": "assets/Panda/3D/panda_3d.png",
+      "git_blob_sha": "f17a4262e26af5b195785fb39d40902ff0e5cb71",
+      "caption": "熊猫陪你",
+      "scenes": [
+        "hello",
+        "comfort"
+      ]
+    },
+    {
+      "id": "fluent_coffee",
+      "path": "assets/Hot beverage/3D/hot_beverage_3d.png",
+      "git_blob_sha": "4317ed5f1ed6c36d486e49eb1da024c79ddd482c",
+      "caption": "喝口热的",
+      "scenes": [
+        "morning",
+        "tired"
+      ]
+    },
+    {
+      "id": "fluent_laugh",
+      "path": "assets/Face with tears of joy/3D/face_with_tears_of_joy_3d.png",
+      "git_blob_sha": "e5c7cd692add6e53602be7ad058a9784211ca22d",
+      "caption": "笑出眼泪",
+      "scenes": [
+        "happy"
+      ]
+    }
+  ]
+}

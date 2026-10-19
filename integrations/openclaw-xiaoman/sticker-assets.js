@@ -5,7 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../assets/stickers/phoenix-d/', import.meta.url));
 const IDS = new Set(['morning', 'received', 'cheer', 'rest', 'thanks', 'goodnight',
-  'laugh', 'hug', 'here', 'sad', 'okay', 'comfort', 'wait', 'go']);
+  'laugh', 'hug', 'here', 'sad', 'okay', 'comfort', 'wait', 'go',
+  'fluent_cat_hello', 'fluent_cat_laugh', 'fluent_cat_cry', 'fluent_cat_love',
+  'fluent_hug', 'fluent_tears', 'fluent_plead', 'fluent_party',
+  'fluent_salute', 'fluent_thumb', 'fluent_clap', 'fluent_thanks',
+  'fluent_cheer', 'fluent_wave', 'fluent_relax', 'fluent_peek',
+  'fluent_sleep', 'fluent_cool', 'fluent_heart', 'fluent_dog',
+  'fluent_rabbit', 'fluent_panda', 'fluent_coffee', 'fluent_laugh']);
 
 export async function resolveSticker(id, root = ROOT) {
   if (!IDS.has(id)) throw new Error('unlisted-sticker');

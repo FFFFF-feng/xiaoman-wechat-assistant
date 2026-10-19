@@ -3,3 +3,4 @@
 *.sh text eol=lf
 *.md text eol=lf
 *.ps1 text eol=crlf
+assets/stickers/phoenix-d/licenses/fluent-emoji-LICENSE.txt text eol=lf

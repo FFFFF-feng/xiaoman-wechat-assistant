@@ -19,7 +19,7 @@ function setup({outcome='accepted',rejectStart=false,unbound=false,failAck=false
       sendMedia:async ctx=>{
         sends++;
         assert.equal(ctx.to,'Alice'); assert.equal(ctx.accountId,'bot'); assert.equal(ctx.text,'');
-        assert.ok(path.isAbsolute(ctx.mediaUrl)); assert.equal(path.basename(ctx.mediaUrl),'received.png');
+        assert.ok(path.isAbsolute(ctx.mediaUrl)); assert.equal(path.basename(ctx.mediaUrl),sticker+'.png');
         assert.deepEqual(ctx.mediaLocalRoots,[path.dirname(ctx.mediaUrl)]);
         if(outcome==='unknown')throw Error('private-provider-token');
         return {messageId:outcome==='empty'?'':'synthetic-id'};
@@ -51,6 +51,29 @@ test('fixed generated asset IDs resolve to verified local PNGs',async()=>{
 test('native sendMedia uses exact account and bound recipient once',async()=>{
   const t=setup();await t.pump.run();await t.pump.run();
   assert.equal(t.sends(),1);assert.equal(t.result().outcome,'accepted');assert.equal(t.result().message_id,'synthetic-id');
+});
+
+test('all reviewed Fluent assets resolve and native upload uses the same trusted media route',async()=>{
+  const source=JSON.parse(await readFile(new URL('../../../assets/stickers/fluent-source.json',import.meta.url),'utf8'));
+  assert.equal(source.assets.length,24);
+  const catalog=JSON.parse(await readFile(new URL('../../../assets/stickers/phoenix-d/manifest.json',import.meta.url),'utf8'));
+  assert.equal(Object.keys(catalog).length,38);
+  for(const entry of source.assets){
+    const asset=await resolveSticker(entry.id);
+    const png=await readFile(asset.file);
+    assert.equal(createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${png.length}\0`),png])).digest('hex'),entry.git_blob_sha);
+    assert.equal(catalog[entry.id].license,'MIT');
+  }
+  const t=setup({sticker:'fluent_cat_hello'});await t.pump.run();await t.pump.run();
+  assert.equal(t.sends(),1);assert.equal(t.result().outcome,'accepted');
+});
+
+test('unreviewed or license IDs cannot become native media',async()=>{
+  for(const sticker of ['fluent_unknown','licenses/fluent-emoji-LICENSE.txt','fluent_cat_hello.png']){
+    const t=setup({sticker});await t.pump.run();assert.equal(t.sends(),0);
+    assert.equal(t.result().error_code,'asset_unavailable');
+    assert.ok(!t.paths.some(p=>p.endsWith('/start')));
+  }
 });
 
 test('no sendMedia capability does not claim or fall back to text',async()=>{

@@ -7,6 +7,8 @@ from sqlalchemy import func, select
 from app import clawbot_stickers as stickers
 from app.clawbot_identity import clawbot_owner
 from app.models import ClawbotStickerDelivery as Delivery, ClawbotStickerPreference as Preference, Task, Reminder
+from app.models import ClawbotStickerStyle as Style
+from app.sticker_catalog import PHOENIX, FLUENT, SCENES
 from app.local_gateway import allowed_path
 import test_clawbot_bridge as fixtures
 
@@ -227,9 +229,9 @@ class StickerTests(TestCase):
         self.assertEqual(self.count(),7)
         with self.sessions() as db:
             rows=db.scalars(select(Delivery).order_by(Delivery.id)).all()
-            self.assertIn(rows[0].sticker_id,{'laugh','cheer','okay'})
-            self.assertIn(rows[1].sticker_id,{'hug','comfort','here'})
-            self.assertIn(rows[2].sticker_id,{'comfort','rest','hug'})
+            self.assertIn(rows[0].sticker_id,stickers.SCENES['happy'])
+            self.assertIn(rows[1].sticker_id,stickers.SCENES['comfort'])
+            self.assertIn(rows[2].sticker_id,stickers.SCENES['tired'])
             self.assertNotEqual(rows[-1].sticker_id,rows[-2].sticker_id)
         self.send('关闭表情包',mid='off')
         self.send('哈哈哈',mid='closed'); self.assertEqual(self.count(),7)
@@ -264,3 +266,190 @@ class StickerTests(TestCase):
             self.assertNotIn('只能发文字',response.json()['reply'])
             model.assert_not_called()
         self.assertEqual(self.claim()['sticker_id'],'hug')
+
+    def test_reviewed_assets_match_pinned_sources_license_and_python_node_allowlists(self):
+        import hashlib
+        import json
+        from pathlib import Path
+        import re
+        from PIL import Image
+        source = json.loads((stickers.ASSETS.parent / 'fluent-source.json').read_text(encoding='utf-8'))
+        catalog = json.loads((stickers.ASSETS / 'manifest.json').read_text(encoding='utf-8'))
+        self.assertEqual(len(catalog), 38)
+        self.assertEqual({entry['id'] for entry in source['assets']}, set(FLUENT))
+        self.assertEqual(set(catalog), set(stickers.CAPTIONS))
+        node = (Path(__file__).resolve().parents[1] / 'integrations/openclaw-xiaoman/sticker-assets.js').read_text()
+        fixed_ids = set(re.findall(r"'([a-z_]+)'", node.split('const IDS = new Set(')[1].split(']);')[0]))
+        self.assertEqual(fixed_ids, set(catalog))
+        license_data = (stickers.ASSETS / 'licenses/fluent-emoji-LICENSE.txt').read_bytes()
+        blob = lambda data: hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+        self.assertEqual(blob(license_data), source['license_git_blob_sha'])
+        self.assertIn(b'Copyright (c) Microsoft Corporation.', license_data)
+        for entry in source['assets']:
+            path = stickers.ASSETS / (entry['id'] + '.png')
+            self.assertEqual(blob(path.read_bytes()), entry['git_blob_sha'])
+            meta = catalog[entry['id']]
+            self.assertEqual(meta['license'], 'MIT')
+            self.assertIn(source['commit'], meta['source_url'])
+            with Image.open(path) as image:
+                self.assertEqual((image.format, image.size, image.mode), ('PNG', (256, 256), 'RGBA'))
+                image.verify()
+
+    def test_style_is_owner_scoped_persistent_and_does_not_reopen_opt_out(self):
+        self.send('关闭表情包')
+        self.send('只用3D表情', mid='style')
+        self.send('哈哈哈', mid='quiet')
+        self.send('表情设置', user='Bob', mid='bob')
+        with self.sessions() as db:
+            self.assertEqual(stickers.style_for(db, self.alice), 'fluent')
+            self.assertEqual(stickers.style_for(db, self.bob), 'mixed')
+            self.assertFalse(db.get(Preference, self.alice).chat_enabled)
+            self.assertFalse(db.get(Preference, self.alice).daily_enabled)
+        self.assertEqual(self.count(), 0)
+        self.assertIn('只用3D', self.send('表情设置', mid='view').json()['reply'])
+        self.send('开启聊天表情', mid='on')
+        self.send('哈哈哈', mid='happy')
+        self.assertIn(self.claim()['sticker_id'], set(FLUENT) & set(SCENES['happy']))
+
+    def test_style_survives_new_database_engine_without_altering_existing_tables(self):
+        from tempfile import TemporaryDirectory
+        from pathlib import Path
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import Session
+        from app.database import Base
+        with TemporaryDirectory(prefix='xiaoman-style-') as directory:
+            url = 'sqlite:///' + str(Path(directory) / 'synthetic.sqlite')
+            old = create_engine(url)
+            Base.metadata.create_all(old, tables=[Preference.__table__, Task.__table__])
+            with Session(old) as db:
+                db.add(Preference(owner_id=self.alice, chat_enabled=False, daily_enabled=False, last_active_at=self.now))
+                db.commit()
+            Base.metadata.create_all(old)
+            with Session(old) as db:
+                stickers.command(db, self.alice, '只用3D表情', 'synthetic')
+            old.dispose()
+            fresh = create_engine(url)
+            try:
+                Base.metadata.create_all(fresh)
+                with Session(fresh) as db:
+                    self.assertEqual(stickers.style_for(db, self.alice), 'fluent')
+                    self.assertFalse(db.get(Preference, self.alice).chat_enabled)
+            finally:
+                fresh.dispose()
+
+    def test_style_switch_invalidates_claimed_automatic_images_not_manual_requests(self):
+        self.send('你好')
+        automatic = self.claim()
+        self.send('给我抱抱表情包', mid='manual')
+        self.send('只用3D表情', mid='style')
+        self.assertEqual(self.start(automatic).status_code, 409)
+        manual = self.claim()
+        self.assertEqual(manual['sticker_id'], 'hug')
+        self.assertEqual(self.start(manual).status_code, 200)
+        self.send('你好', mid='next')
+        self.send('只用3D表情', mid='same-style')
+        self.assertIn(self.claim()['sticker_id'], FLUENT)
+
+    def test_switch_saves_while_admin_disabled_and_quotes_import_do_not_change_style(self):
+        with patch.dict('os.environ', {'CLAWBOT_STICKERS_ENABLED': 'false'}):
+            self.send('只用3D表情')
+        self.send('“只用小凤鸟表情”', mid='quoted')
+        self.send('如果我说只用小凤鸟表情呢', mid='conditional')
+        self.send('整理聊天记录', mid='import')
+        self.send('混合表情', mid='quoted-in-import')
+        with self.sessions() as db:
+            self.assertEqual(stickers.style_for(db, self.alice), 'fluent')
+        self.assertEqual(self.count(), 0)
+
+    def test_scene_selection_covers_both_families_and_avoids_recent_images(self):
+        samples = [stickers.choose_sticker('谢谢你', str(i)) for i in range(40)]
+        self.assertTrue(set(samples) & set(PHOENIX))
+        self.assertTrue(set(samples) & set(FLUENT))
+        for text, scene in [('好开心', 'happy'), ('我不开心哈哈', 'comfort'), ('好累', 'tired'), ('呜呜', 'sad')]:
+            for style, family in [('phoenix', PHOENIX), ('fluent', FLUENT)]:
+                for i in range(12):
+                    chosen = stickers.choose_sticker(text, str(i), style=style)
+                    self.assertIn(chosen, set(SCENES[scene]) & set(family))
+        recent = SCENES['neutral'][:3]
+        self.assertNotIn(stickers.choose_sticker('午饭吃了面条', 'avoid', recent=recent), recent)
+        self.assertIsNone(stickers.choose_sticker('哈哈帮我解释这个函数', 'code'))
+
+    def test_missing_external_family_falls_back_only_in_mixed_mode(self):
+        original = stickers.available
+        with patch('app.clawbot_stickers.available', side_effect=lambda s: s in PHOENIX and original(s)):
+            self.assertIn('开启', self.send('开启聊天表情').json()['reply'])
+            self.send('谢谢你', mid='thanks')
+            self.assertIn(self.claim()['sticker_id'], PHOENIX)
+            self.send('只用3D表情', mid='fluent')
+            self.send('谢谢你', mid='unavailable')
+            self.assertIsNone(self.claim())
+            self.assertIn('没有安排发送', self.send('给我抱抱表情包', mid='request').json()['reply'])
+            self.assertIn('暂未开启', self.send('开启聊天表情', mid='on').json()['reply'])
+        self.send('混合表情', mid='mixed')
+        self.send('关闭日常表情', mid='daily-off')
+        with patch('app.clawbot_stickers.available', side_effect=lambda s: s == 'thanks'):
+            self.assertIn('暂未开启', self.send('开启日常表情', mid='daily-no-morning').json()['reply'])
+        with self.sessions() as db:
+            self.assertFalse(db.get(Preference, self.alice).daily_enabled)
+
+    def test_explicit_external_requests_and_native_equivalents_in_fluent_mode(self):
+        self.send('来张猫猫表情')
+        self.assertEqual(self.claim()['sticker_id'], 'fluent_cat_hello')
+        self.send('给我3D抱抱表情包', mid='3d')
+        self.assertEqual(self.claim()['sticker_id'], 'fluent_hug')
+        self.send('只用3D表情', mid='style')
+        self.send('给我收到表情包', mid='receipt')
+        self.assertIn(self.claim()['sticker_id'], set(SCENES['okay']) & set(FLUENT))
+        self.send('给我加油表情包', mid='cheer')
+        self.assertIn(self.claim()['sticker_id'], set(SCENES['cheer']) & set(FLUENT))
+
+    def test_manual_next_image_respects_style_and_replay_remains_idempotent(self):
+        self.send('只用3D表情')
+        for i in range(6):
+            self.send('换张表情', mid='next-'+str(i))
+        self.send('换张表情', mid='next-5')
+        with self.sessions() as db:
+            rows = list(db.scalars(select(Delivery).order_by(Delivery.id)))
+            self.assertEqual(len(rows), 6)
+            self.assertTrue(all(row.sticker_id in FLUENT for row in rows))
+            self.assertTrue(all(a.sticker_id != b.sticker_id for a, b in zip(rows, rows[1:])))
+
+    def test_daily_follows_fluent_style_and_style_change_does_not_duplicate_greeting(self):
+        self.daily_ready()
+        self.send('只用3D表情')  # cancels today's queued image, does not create a second event
+        with self.sessions() as db:
+            stickers.queue_daily(db, fixtures.BINDINGS)
+        self.assertEqual(self.count(), 1)
+        self.now += timedelta(days=1)
+        with self.sessions() as db:
+            stickers.queue_daily(db, fixtures.BINDINGS)
+            row = db.scalar(select(Delivery).where(Delivery.owner_id == self.alice, Delivery.status == 'pending'))
+            self.assertIn(row.sticker_id, {'fluent_coffee', 'fluent_wave'})
+
+    def test_successful_create_snooze_complete_react_but_failed_or_clarify_do_not(self):
+        first = self.send('两分钟后提醒我写作业').json()
+        self.assertEqual(first['action'], 'create')
+        self.assertEqual(self.count(), 1)
+        changed = self.send('改到明天下午四点', mid='snooze').json()
+        self.assertEqual(changed['action'], 'snooze')
+        self.assertEqual(self.count(), 2)
+        done = self.send('完成写作业', mid='done').json()
+        self.assertEqual(done['task']['status'], 'done')
+        self.assertEqual(self.count(), 3)
+        with self.sessions() as db:
+            self.assertIn(db.scalars(select(Delivery).order_by(Delivery.id.desc())).first().sticker_id, SCENES['celebrate'])
+        self.send('完成不存在的作业', mid='missing')
+        self.send('提醒我洗衣服', mid='clarify')
+        self.assertEqual(self.count(), 3)
+        self.send('完成写作业', mid='done')
+        self.assertEqual(self.count(), 3)
+
+    def test_task_reactions_honor_chat_off_and_serious_context(self):
+        self.send('两分钟后提醒我吃药')
+        self.assertEqual(self.count(), 0)
+        self.send('关闭聊天表情', mid='off')
+        self.send('五分钟后提醒我写作业', mid='homework')
+        self.assertEqual(self.count(), 0)
+        self.send('查询待办', mid='list')
+        self.send('打开日程', mid='schedule')
+        self.assertEqual(self.count(), 0)

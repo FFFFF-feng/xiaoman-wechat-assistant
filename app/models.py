@@ -233,6 +233,13 @@ class ClawbotStickerPreference(Base):
     last_active_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class ClawbotStickerStyle(Base):
+    """Independent additive table; existing opt-out rows are never overwritten."""
+    __tablename__ = "clawbot_sticker_styles"
+    owner_id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    style: Mapped[str] = mapped_column(String(20), nullable=False)
+
+
 class ClawbotStickerDelivery(Base):
     """Images have a separate outbox; no fake reminder, arbitrary URL or file path."""
     __tablename__ = "clawbot_sticker_deliveries"
