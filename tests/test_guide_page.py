@@ -39,6 +39,12 @@ class GuidePageTests(TestCase):
         self.assertNotIn('fetch(',body)
         self.assertNotIn('access=',body)
         self.assertEqual(response.headers['cache-control'],'no-store')
+        self.assertIn('class="release-demo"', body)
+        self.assertIn('对话示意', body)
+        self.assertIn('class="release-history"', body)
+        # Historical releases are closed by default; the old fragment remains an entry.
+        self.assertNotRegex(body, r'<details[^>]*class="release past-release"[^>]*\bopen\b')
+        self.assertIn("location.replace('/guide?view=updates#updates')", body)
 
     def test_avatar_and_page_served_through_gateway_without_expanding_private_access(self):
         app = FastAPI(); app.include_router(router)

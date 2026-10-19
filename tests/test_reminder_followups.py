@@ -90,6 +90,76 @@ class ReminderFollowupTests(TestCase):
         self.assertEqual(self.count(), 5)
         self.assertEqual(self.get_task(tid).status, 'open')
 
+    def test_playful_banter_uses_actual_reminder_and_short_completion_keeps_context(self):
+        from app.parser import ParsedCommand
+        self.send('说话俏皮一点，以后你叫小团子', mid='preferences')
+        tid = self.task(minutes=0, title='喝水')
+        self.tick(); self.accept()
+        joke = '水杯等你半天了，都快申请换主人了。'
+        with patch('app.chat_service.parse_with_model', return_value=ParsedCommand('chat', message=joke)) as model:
+            response = self.send('催啥催？', mid='banter').json()
+            self.assertEqual(response['reply'], joke)
+            self.assertEqual(model.call_count, 1)
+            self.assertEqual(model.call_args.kwargs['dialogue_context']['task_title'], '喝水')
+            self.assertEqual(model.call_args.kwargs['preferences']['reply_tone'], 'playful')
+        self.assertEqual(self.plan(tid).state, 'active')
+        self.assertEqual(self.get_task(tid).status, 'open')
+        done = self.send('完成了完成了，你别催了', mid='done').json()
+        self.assertEqual(done['task']['id'], tid)
+        self.assertEqual(self.get_task(tid).status, 'done')
+
+    def test_banter_cannot_mutate_tasks_even_when_model_requests_it(self):
+        from app.parser import ParsedCommand
+        tid = self.task(minutes=0, title='喝水')
+        self.tick(); self.accept()
+        for index, action in enumerate(['complete', 'cancel', 'snooze', 'create']):
+            with patch('app.chat_service.parse_with_model', return_value=ParsedCommand(action, title='喝水')):
+                result = self.send('催什么催', mid='wrong-action-'+str(index)).json()
+            self.assertEqual(result['action'], 'chat')
+            self.assertEqual(self.get_task(tid).status, 'open')
+            self.assertEqual(self.plan(tid).state, 'active')
+        self.tick(10)
+        self.assertIsNotNone(self.claim())
+
+    def test_banter_no_model_or_formal_or_false_receipt_uses_contextual_fallback(self):
+        from app.parser import ParsedCommand
+        tid = self.task(minutes=0, title='喝水')
+        self.tick(); self.accept()
+        previous = None
+        for index, message in enumerate([None, '好，我不催你，可以在提醒跟进设置里调整次数。', '已经完成喝水了。']):
+            answer = ParsedCommand('chat', message=message) if message else None
+            with patch('app.chat_service.parse_with_model', return_value=answer):
+                result = self.send('催啥催', mid='fallback-'+str(index)).json()
+            self.assertIn('水', result['reply'])
+            self.assertNotIn('设置', result['reply'])
+            self.assertNotIn('已经完成', result['reply'])
+            self.assertNotEqual(result['reply'], previous)
+            previous = result['reply']
+        self.assertEqual(self.get_task(tid).status, 'open')
+
+    def test_banter_does_not_infer_another_users_task_or_a_quote_as_a_joke(self):
+        self.task(minutes=0, title='喝水')
+        self.tick(); self.accept()
+        with patch('app.chat_service.parse_with_model', return_value=None) as model:
+            response = self.send('催啥催', user='Bob').json()
+            self.assertIsNone(model.call_args.kwargs['dialogue_context']['task_title'])
+            self.assertNotIn('水杯', response['reply'])
+        with patch('app.chat_service.parse_with_model') as model:
+            result = self.send('“催啥催”', mid='quote').json()
+            self.assertEqual(result['action'], 'clarify')
+            model.assert_not_called()
+
+    def test_explicit_stop_after_banter_still_pauses_instead_of_joking(self):
+        tid = self.task(minutes=0, title='写Java作业')
+        self.tick(); self.accept()
+        self.send('急啥急', mid='banter')
+        with patch('app.chat_service.parse_with_model') as model:
+            response = self.send('别催我了', mid='stop').json()
+            self.assertIn('先不催', response['reply'])
+            model.assert_not_called()
+        self.assertEqual(self.plan(tid).state, 'paused')
+        self.assertEqual(self.get_task(tid).status, 'open')
+
     def test_normal_has_one_nudge_and_low_only_due(self):
         for user, priority in [('Alice', 'normal'), ('Bob', 'low')]:
             self.task(minutes=10, priority=priority, user=user, title=user + '事项')

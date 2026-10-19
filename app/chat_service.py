@@ -14,6 +14,7 @@ from .clawbot_delivery import enabled as clawbot_reminders_enabled
 from . import task_dialogue
 from . import assistant_preferences
 from . import reminder_controls
+from . import reminder_banter
 from .reply_style import completion_reply
 from .parser import (
     CREATE_PATTERN,
@@ -416,6 +417,8 @@ def handle_chat_message(
     receipt_text = normalized
     normalized = assistant_preferences.strip_address(db, owner_id, normalized)
     preference_command = assistant_preferences.command(db, owner_id, normalized)
+    banter = (reminder_controls.banter_context(db, owner_id, normalized, receipt_text)
+              if preference_command is None else None)
     reminder_control = (reminder_controls.command(db, owner_id, normalized, receipt_text)
                         if preference_command is None else None)
     context = db.get(ConversationTaskContext, owner_key)
@@ -454,9 +457,15 @@ def handle_chat_message(
              or task_dialogue.completion_reply(db, owner_id, normalized, receipt_text=receipt_text)
              or task_dialogue.orphan_time_reply(normalized))
     rule_command = parse_command(normalized)
-    model_command = (parse_with_model(normalized, history=history, preferences=assistant_preferences.snapshot(db, owner_id))
+    model_options = {'dialogue_context': banter} if banter else {}
+    model_command = (parse_with_model(normalized, history=history, preferences=assistant_preferences.snapshot(db, owner_id), **model_options)
                      if use_model and guard is None else None)
-    command = guard or _reconcile_commands(normalized, model_command, rule_command, None)
+    if banter and guard is None:
+        # A joke cannot complete/cancel tasks even if the model misroutes it.
+        command = (model_command if model_command and model_command.action == 'chat'
+                   and reminder_banter.usable_reply(model_command.message) else ParsedCommand('chat', message=banter['fallback']))
+    else:
+        command = guard or _reconcile_commands(normalized, model_command, rule_command, None)
     if command.action == 'clarify' and guard is None:
         snooze_task = None
         match = re.match(r'^(?:请)?(?:把)?(.+?)(?:延后|推迟|延期|改到)', normalized)

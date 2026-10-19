@@ -14,6 +14,7 @@ from .parser import ParsedCommand
 from .reply_style import NATURAL_CHAT_POLICY
 from .assistant_preferences import prompt_context
 from .reminder_followups import enabled as followups_enabled
+from .reminder_banter import context_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +179,7 @@ def _json_text(content: object) -> str:
     raise ValueError("模型返回的文本格式无法识别")
 
 
-def parse_with_model(text: str, history: list[ChatHistoryItem] | None = None, *, preferences: dict | None = None) -> ParsedCommand | None:
+def parse_with_model(text: str, history: list[ChatHistoryItem] | None = None, *, preferences: dict | None = None, dialogue_context: dict | None = None) -> ParsedCommand | None:
     """用模型完成意图分流；普通聊天直接生成小满的回复，失败时返回 None。"""
     global LAST_MODEL_ERROR, MODEL_AVAILABLE
     if not MODEL_ENABLED or not API_KEY:
@@ -219,6 +220,7 @@ title 只保留任务内容，不包含“提醒我、完成、取消、任务�
 必须只输出一个 JSON 对象，字段固定为 action、title、due_at、confidence、message，不要输出 Markdown 或结构以外的文字。"""
     instructions += "\n以下表达规则仅用于message，严格保留上面的JSON协议：\n" + NATURAL_CHAT_POLICY
     instructions += prompt_context(preferences)
+    instructions += context_prompt(dialogue_context)
     try:
         if os.getenv("CLAWBOT_ENABLED", "false").lower() == "true":
             active = os.getenv("CLAWBOT_REMINDERS_ENABLED", "false").lower() == "true"

@@ -132,3 +132,94 @@ button:hover, .button:hover { filter: brightness(.94); }
   .release-examples button { text-align: left; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* The update board is a small conversation notebook, separate from setup. */
+.updates-page { --paper: #f5f7fb; --ink: #252b3b; --quiet: #637084; --line: #dfe5ee; --red: #c93942; --soft: #fff0ef; --focus: #a32230; background: var(--paper); }
+.updates-page .update-board { max-width: 1040px; padding: 24px 38px 36px; }
+.updates-page header { padding-bottom: 18px; }
+.updates-page .brand { font-size: 23px; gap: 10px; }
+.updates-page .brand-page { font-size: 13px; color: var(--quiet); font-weight: 400; border-left: 1px solid var(--line); padding-left: 12px; margin-left: 3px; }
+.updates-page nav { gap: 8px; }
+.updates-page nav a { border-radius: 24px; text-decoration: none; padding: 5px 14px; color: var(--quiet); }
+.updates-page nav [aria-current] { background: #fff; color: var(--red); }
+.updates-page .board-intro { padding: 42px 0 30px; align-items: flex-end; }
+.updates-page .board-intro h1 { font-size: clamp(28px, 4vw, 39px); letter-spacing: -.035em; font-weight: 800; margin-bottom: 8px; }
+.updates-page .board-intro p { font-size: 16px; }
+.updates-page .board-stamp { color: #436554; background: #e0f1e6; border-radius: 8px; padding: 4px 12px; font-size: 13px; white-space: nowrap; transform: rotate(3deg); margin-bottom: 6px; }
+.updates-page .latest-release { position: relative; padding: 0; background: #fff; border: 1px solid var(--line); border-radius: 26px; overflow: hidden; margin-bottom: 40px; }
+.updates-page .release-label { position: absolute; top: 0; left: 32px; margin: 0; background: var(--red); color: #fff; padding: 4px 15px; border-radius: 0 0 10px 10px; font-size: 12px; }
+.updates-page .release-hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 28px; padding: 55px 34px 32px; }
+.updates-page .release-meta { justify-content: flex-start; gap: 12px; margin-bottom: 16px; font-size: 13px; }
+.updates-page .release-version { background: #e0f1e6; color: #315c45; border-radius: 7px; padding: 1px 9px; font-weight: 600; }
+.updates-page .release-heading h2 { font-size: clamp(26px, 3.5vw, 34px); line-height: 1.4; max-width: 11em; letter-spacing: -.025em; }
+.updates-page .release-summary { margin: 0 0 20px; font-size: 15px; max-width: 26em; }
+.updates-page .release-heading .button { border-radius: 24px; padding: 9px 22px; font-size: 14px; }
+.updates-page .release-demo { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; background: #edf4f0; border-radius: 20px; padding: 20px; min-width: 0; }
+.updates-page .release-demo img { border-radius: 50%; border: 3px solid white; background: white; object-fit: cover; }
+.updates-page .demo-bubble { padding: 10px 14px; font-size: 15px; line-height: 1.6; border-radius: 14px; max-width: 100%; overflow-wrap: anywhere; }
+.updates-page .demo-user { align-self: flex-end; background: #c9edce; border-bottom-right-radius: 4px; margin-top: -32px; }
+.updates-page .demo-bot { background: white; border-top-left-radius: 4px; }
+.updates-page .demo-caption { font-size: 11px; color: #536a5d; align-self: center; }
+.updates-page .release-body { padding: 0 34px 26px; }
+.updates-page .release-changes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 28px; border-top: 1px solid var(--line); padding-top: 28px; }
+.updates-page .release-changes li { display: flex; gap: 12px; padding: 0; border: 0; align-items: flex-start; min-width: 0; }
+.updates-page .change-mark { color: var(--red); font-size: 20px; line-height: 1.4; flex: 0 0 16px; }
+.updates-page .release-changes h3 { font-size: 17px; margin: 0 0 8px; }
+.updates-page .release-changes p { font-size: 14px; color: var(--quiet); line-height: 1.85; margin: 0; overflow-wrap: anywhere; }
+.updates-page .release-try { margin-top: 28px; padding: 22px 24px; background: #f6f7fa; border-radius: 16px; }
+.updates-page .release-try h3 { font-size: 18px; margin-bottom: 2px; }
+.updates-page .release-try > p { color: var(--quiet); font-size: 13px; margin: 2px 0 0; }
+.updates-page .release-examples { padding-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+.updates-page .release-examples button { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink); text-align: left; font-size: 13px; font-weight: 500; }
+.updates-page .release-examples button::after { content: '复制'; color: var(--red); font-size: 12px; white-space: nowrap; }
+.updates-page .release-try .hint { font-size: 12px; margin-top: 10px; }
+.updates-page .release-note { border: 0; border-top: 1px solid var(--line); padding: 8px 0 0; margin: 20px 0 0; max-width: none; }
+.updates-page .release-note summary { font-size: 13px; color: var(--quiet); }
+.updates-page .release-note p { margin: 4px 0; font-size: 13px; color: var(--quiet); }
+.updates-page .release-history { padding: 0 6px; margin-bottom: 32px; }
+.updates-page .history-heading { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; gap: 12px; }
+.updates-page .history-heading h2 { font-size: 22px; margin: 0; }
+.updates-page .history-heading p { font-size: 13px; color: var(--quiet); margin: 0; }
+.updates-page .past-release { padding: 9px 0; margin: 0; }
+.updates-page .past-release > summary { display: flex; flex-wrap: nowrap; padding: 8px 0; gap: 14px; list-style: none; }
+.updates-page .past-release > summary::-webkit-details-marker { display: none; }
+.updates-page .past-release > summary span { display: flex; flex: 1; align-items: baseline; gap: 14px; font-size: 14px; }
+.updates-page .past-release b { font-size: 12px; color: var(--quiet); min-width: 42px; font-weight: 500; }
+.updates-page .past-release > summary::after { content: '+'; font-size: 22px; color: var(--quiet); font-weight: 400; }
+.updates-page .past-release[open] > summary::after { content: '−'; }
+.updates-page .past-release time { white-space: nowrap; font-size: 12px; }
+.updates-page .past-release[open] { padding-bottom: 24px; }
+.updates-page .past-release .release-changes { grid-template-columns: 1fr; border-top: 0; padding-top: 4px; gap: 18px; }
+.updates-page .board-help { border-top: 1px solid var(--line); padding: 24px 6px; display: flex; align-items: center; gap: 28px; justify-content: space-between; }
+.updates-page .board-help h2 { font-size: 19px; }
+.updates-page .board-help p { font-size: 13px; color: var(--quiet); }
+.updates-page .board-help .hint { font-size: 12px; }
+.updates-page .board-help .button { white-space: nowrap; flex-shrink: 0; border-radius: 22px; background: transparent; font-size: 13px; }
+.updates-page footer { font-size: 12px; }
+@media (max-width: 650px) {
+  .updates-page .update-board { padding: 18px 18px 28px; }
+  .updates-page .brand-page { display: none; }
+  .updates-page nav a { padding: 5px 10px; font-size: 12px; }
+  .updates-page .board-intro { padding: 30px 0 24px; }
+  .updates-page .board-intro h1 { font-size: 27px; }
+  .updates-page .board-intro p { font-size: 14px; }
+  .updates-page .board-stamp { display: none; }
+  .updates-page .latest-release { border-radius: 20px; margin-bottom: 30px; }
+  .updates-page .release-label { left: 22px; }
+  .updates-page .release-hero { grid-template-columns: 1fr; padding: 48px 22px 24px; gap: 24px; }
+  .updates-page .release-heading h2 { font-size: 29px; max-width: 11em; }
+  .updates-page .release-summary { font-size: 14px; }
+  .updates-page .release-demo { padding: 20px; gap: 10px; }
+  .updates-page .release-body { padding: 0 22px 20px; }
+  .updates-page .release-changes { grid-template-columns: 1fr; gap: 22px; padding-top: 24px; }
+  .updates-page .release-try { padding: 18px 16px; }
+  .updates-page .release-examples { flex-direction: column; align-items: stretch; }
+  .updates-page .release-examples button { font-size: 13px; }
+  .updates-page .history-heading { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .updates-page .past-release > summary { position: relative; padding-right: 18px; }
+  .updates-page .past-release > summary span { display: block; font-size: 14px; }
+  .updates-page .past-release b { display: block; font-size: 11px; margin-bottom: 1px; }
+  .updates-page .past-release time { font-size: 11px; }
+  .updates-page .past-release > summary::after { position: absolute; right: 0; }
+  .updates-page .board-help { align-items: flex-start; flex-direction: column; gap: 8px; }
+}

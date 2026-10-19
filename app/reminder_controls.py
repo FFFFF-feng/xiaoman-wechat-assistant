@@ -13,6 +13,7 @@ from .models import (ClawbotDelivery, ConversationTaskContext, Reminder, Reminde
                      ReminderDialogueFocus, ReminderFollowupPreference as Preference, ReminderStage, Task)
 from .parser import ParsedCommand
 from .task_dialogue import latest_receipt
+from . import assistant_preferences, reminder_banter
 
 
 def _compact(text):
@@ -153,6 +154,32 @@ def _global(db, owner, value):
     return ParsedCommand('chat', message=f'好，{value}的设置已保存。到点提醒仍按事项安排。' + ('额外跟进服务目前尚未启用。' if not followups.enabled() else ''))
 
 
+def banter_context(db, owner, text, receipt_text):
+    if not is_clawbot_owner(owner) or not reminder_banter.requested(text):
+        return None
+    pending = db.get(Request, owner)
+    previous = latest_receipt(db, owner, receipt_text)
+    current = latest_receipt(db, owner)
+    if not (pending and pending.action == 'focus' and pending.expires_at > parser.now_exact_local()
+            and previous and pending.last_message_id == previous.id):
+        pending = None
+    tasks, certain = _targets(db, owner, receipt_text, pending)
+    task = tasks[0] if certain and len(tasks) == 1 else None
+    if task:
+        _remember(db, owner, 'focus', [task])
+        focus = db.get(ReminderDialogueFocus, owner)
+        if (focus and focus.expires_at > parser.now_exact_local() and previous
+                and focus.last_message_id == previous.id):
+            item = db.get(ClawbotDelivery, focus.delivery_id)
+            reminder = db.get(Reminder, item.reminder_id) if item else None
+            if item and item.status == 'accepted' and reminder and reminder.task_id == task.id:
+                focus.last_message_id = current.id if current else None
+    pref = assistant_preferences.snapshot(db, owner)
+    return {'task_title': task.title if task else None,
+            'fallback': reminder_banter.fallback(task.title if task else None, pref['reply_tone'],
+                receipt_text + ':' + str(current.id if current else ''), previous.reply_content if previous else '')}
+
+
 def command(db, owner, text, receipt_text):
     if not is_clawbot_owner(owner):
         return None
@@ -160,6 +187,8 @@ def command(db, owner, text, receipt_text):
     global_reply = _global(db, owner, value)
     if global_reply is not None:
         return global_reply
+    if reminder_banter.requested(text):
+        return None
     if not followups.enabled():
         return None
     if re.search(r'催|再叫我|再提醒我|恢复提醒', text) and re.search(r'如果|假如|要是|他说|她说|[“”「」"？?]|(?:吗|么)$', text):

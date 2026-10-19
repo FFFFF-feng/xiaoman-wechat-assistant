@@ -1,5 +1,10 @@
 (() => {
   'use strict';
+  if (location.pathname === '/guide' && location.hash === '#updates'
+      && new URLSearchParams(location.search).get('view') !== 'updates') {
+    location.replace('/guide?view=updates#updates');
+    return;
+  }
   const panel = document.getElementById('copy-feedback');
   const message = document.getElementById('copy-message');
   const fallback = document.getElementById('copy-fallback');
