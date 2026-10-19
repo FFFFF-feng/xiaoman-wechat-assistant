@@ -126,7 +126,7 @@ class ReminderFollowupTests(TestCase):
         tid = self.task(minutes=0, title='喝水')
         self.tick(); self.accept()
         previous = None
-        for index, message in enumerate([None, '好，我不催你，可以在提醒跟进设置里调整次数。', '已经完成喝水了。']):
+        for index, message in enumerate([None, '好，我不催你，可以在提醒跟进设置里调整次数。', '已经完成喝水了。', '你刚才发呆的样子像在等别人干活。']):
             answer = ParsedCommand('chat', message=message) if message else None
             with patch('app.chat_service.parse_with_model', return_value=answer):
                 result = self.send('催啥催', mid='fallback-'+str(index)).json()
