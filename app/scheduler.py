@@ -11,9 +11,10 @@ from sqlalchemy import select
 from .adapters.mock import MockChatAdapter
 from .adapters.wechat_official import WechatAPIError
 from .database import SessionLocal
-from .models import Message, Reminder, Task
+from .models import Message, Reminder, ReminderStage, Task
 from .clawbot_identity import is_clawbot_owner
 from . import clawbot_delivery
+from . import reminder_followups
 from . import clawbot_stickers
 from . import clawbot_announcements
 from .clawbot_bindings import load_bindings
@@ -42,6 +43,7 @@ def check_due_tasks() -> None:
     now = datetime.now(LOCAL_TZ).replace(tzinfo=None)
     db = SessionLocal()
     try:
+        reminder_followups.queue_stages(db, now)
         tasks = db.scalars(
             select(Task).where(Task.status.in_(["open", "snoozed"]), Task.due_at <= now, Task.reminder_enabled.is_(True))
         ).all()
@@ -49,10 +51,13 @@ def check_due_tasks() -> None:
             db.refresh(task)
             if task.status not in {"open", "snoozed"} or task.due_at > now or not task.reminder_enabled:
                 continue
+            if is_clawbot_owner(task.owner_id) and reminder_followups.suppresses_due(db, task):
+                continue
             existing = db.scalar(
                 select(Reminder).where(
                     Reminder.task_id == task.id,
                     Reminder.reminder_time == task.due_at,
+                    ~select(ReminderStage.reminder_id).where(ReminderStage.reminder_id == Reminder.id).exists(),
                 )
             )
             if existing:

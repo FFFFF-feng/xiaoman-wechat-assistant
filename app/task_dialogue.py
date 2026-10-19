@@ -8,6 +8,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from . import parser
+from . import reminder_followups
 from .clawbot_identity import is_clawbot_owner
 from .models import ClawbotDelivery, ClawbotMessage, PendingTaskDialogue, Reminder, ReminderDialogueFocus, Task
 from .parser import ParsedCommand
@@ -208,15 +209,15 @@ def completion_reply(db: Session, owner: str | None, text: str, *, receipt_text:
     item = db.get(ClawbotDelivery, focus.delivery_id)
     reminder = db.get(Reminder, item.reminder_id) if item else None
     task = db.get(Task, reminder.task_id) if reminder else None
-    if not item or item.owner_id != owner or item.status != 'accepted' or not task or task.owner_id != owner or task.status not in {'open', 'snoozed'} or task.due_at != reminder.reminder_time:
+    if not item or item.owner_id != owner or item.status != 'accepted' or not task or task.owner_id != owner or task.status not in {'open', 'snoozed'} or task.due_at != reminder_followups.task_due(db, reminder):
         return ParsedCommand('clarify', message='我还不能确定你说的是哪件事，告诉我任务名吧。')
-    recent = db.scalars(select(ClawbotDelivery).where(
+    recent = db.execute(select(ClawbotDelivery, Reminder, Task).where(
         ClawbotDelivery.owner_id == owner, ClawbotDelivery.status.in_(['accepted', 'sending', 'unknown']),
         ClawbotDelivery.started_at >= parser.now_exact_local() - FOCUS_LIFETIME,
     ).join(Reminder, Reminder.id == ClawbotDelivery.reminder_id).join(Task, Task.id == Reminder.task_id)
-        .where(Task.owner_id == owner, Task.status.in_(['open', 'snoozed']), Task.due_at == Reminder.reminder_time)).all()
+        .where(Task.owner_id == owner, Task.status.in_(['open', 'snoozed']))).all()
     # Several reminders at once have no unambiguous "that one".
-    if len({row.reminder_id for row in recent}) > 1:
+    if len({t.id for _, r, t in recent if t.due_at == reminder_followups.task_due(db, r)}) > 1:
         return ParsedCommand('clarify', message='刚提醒了不止一件，做完的是哪一件？')
     return ParsedCommand('complete', task_id=task.id, title=task.title)
 

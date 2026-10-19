@@ -13,6 +13,7 @@ from .clawbot_identity import is_clawbot_owner
 from .clawbot_delivery import enabled as clawbot_reminders_enabled
 from . import task_dialogue
 from . import assistant_preferences
+from . import reminder_controls
 from .reply_style import completion_reply
 from .parser import (
     CREATE_PATTERN,
@@ -415,6 +416,8 @@ def handle_chat_message(
     receipt_text = normalized
     normalized = assistant_preferences.strip_address(db, owner_id, normalized)
     preference_command = assistant_preferences.command(db, owner_id, normalized)
+    reminder_control = (reminder_controls.command(db, owner_id, normalized, receipt_text)
+                        if preference_command is None else None)
     context = db.get(ConversationTaskContext, owner_key)
     correction = None
     if correction_time_text(normalized) is not None:
@@ -445,9 +448,9 @@ def handle_chat_message(
         correction = ParsedCommand("clarify", message="想改到哪个时间？请给一个确定的时刻，例如“改成12:30”。")
     fragment_guard = _fragment_safety_guard(normalized)
     pending_command = (task_dialogue.continue_draft(db, owner_id, normalized, receipt_text=receipt_text)
-                       if fragment_guard is None and preference_command is None else None)
+                       if fragment_guard is None and preference_command is None and reminder_control is None else None)
     db.flush()
-    guard = (preference_command or fragment_guard or pending_command or correction
+    guard = (preference_command or fragment_guard or reminder_control or pending_command or correction
              or task_dialogue.completion_reply(db, owner_id, normalized, receipt_text=receipt_text)
              or task_dialogue.orphan_time_reply(normalized))
     rule_command = parse_command(normalized)

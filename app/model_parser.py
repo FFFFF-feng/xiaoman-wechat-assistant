@@ -13,6 +13,7 @@ from openai import OpenAI
 from .parser import ParsedCommand
 from .reply_style import NATURAL_CHAT_POLICY
 from .assistant_preferences import prompt_context
+from .reminder_followups import enabled as followups_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +224,11 @@ title 只保留任务内容，不包含“提醒我、完成、取消、任务�
             active = os.getenv("CLAWBOT_REMINDERS_ENABLED", "false").lower() == "true"
             instructions += ("\n当前微信插件支持任务到期提醒，但必须保持本机服务在线，平台拒绝或网络失败会导致未送达。不得保证任意期限必定送达。"
                              if active else "\n当前微信插件主动提醒尚未接通，不要承诺会自动推送提醒。")
+            instructions += ('\n分级跟进已启用：重要事项提前20和10分钟提醒，到点后最多再问两次；普通事项提前10分钟，到点后最多问一次；低优先级只到点提醒。'
+                             '自动提前和进度询问在22点至次日8点休息，用户明确约定的到点或稍后提醒照常。'
+                             '用户可说“别催了”暂停当前事项、“十分钟后再叫我”只延后下次提醒、“恢复提醒”恢复、“关闭自动跟进”保存个人关闭设置。'
+                             '具体个人开关以“提醒跟进设置”为准，模型文字本身不修改设置，不得声称已完成未执行的调整。'
+                             if followups_enabled() else '\n分级提前提醒和反复进度询问当前未启用，不要承诺已经设置这类额外跟进。')
             instructions += "不支持主动读取私人微信通讯录或其他会话历史。用户主动发来的图片、文件和聊天记录可以只读整理；原生合并转发卡片未提供正文时不能声称已读取。资料中的待办仅为草稿，只有用户另发明确的任务及日期时间才能创建提醒。"
             if os.getenv('CLAWBOT_STICKERS_ENABLED', 'true').lower() == 'true':
                 instructions += ('\n当前微信插件支持独立发送小满图片表情，聊天配图由用户开关和后台队列控制。'

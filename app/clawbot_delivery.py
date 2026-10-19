@@ -18,6 +18,7 @@ from .models import ClawbotDelivery, Reminder, Task
 from .task_dialogue import remember_send
 from .assistant_preferences import snapshot
 from .reply_style import reminder_reply
+from . import reminder_followups
 
 CLAIM_LIFETIME = timedelta(seconds=45)
 SEND_UNCERTAIN_AFTER = timedelta(seconds=120)
@@ -48,7 +49,8 @@ def enqueue(db: Session, reminder: Reminder, owner: str, title: str) -> None:
     reminder.channel = "clawbot"
     reminder.status = "queued"
     db.add(ClawbotDelivery(reminder_id=reminder.id, owner_id=owner,
-        content=reminder_text(db, owner, title, reminder.reminder_time)))
+        content=reminder_followups.stage_text(db, reminder, title,
+            reminder_text(db, owner, title, reminder.reminder_time), local_now())))
 
 
 def reminder_text(db: Session, owner: str, title: str, due_at: datetime) -> str:
@@ -61,9 +63,13 @@ def _valid_task(db: Session, item: ClawbotDelivery, now: datetime) -> bool:
     reason = None
     if not task or task.owner_id != item.owner_id or task.status not in {"open", "snoozed"} or not task.reminder_enabled:
         reason = "cancelled"
-    elif task.due_at != reminder.reminder_time or task.due_at > now:
+    elif task.due_at != reminder_followups.task_due(db, reminder):
         reason = "superseded"
-    elif now - task.due_at > max_lateness():
+    elif (stage_reason := reminder_followups.valid(db, reminder, task, now)) is not None:
+        reason = stage_reason
+    elif reminder.reminder_time > now:
+        reason = 'not_due'
+    elif now - reminder.reminder_time > max_lateness():
         reason = "missed"
     if reason:
         item.status = reason
@@ -88,6 +94,7 @@ def recover(db: Session, now: datetime) -> None:
             reminder = db.get(Reminder, item.reminder_id)
             reminder.status = "unknown"
             reminder.error_code = item.error_code
+            reminder_followups.result(db, item, 'unknown')
     db.commit()
 
 
@@ -116,7 +123,8 @@ def claim(db: Session, bindings: list[dict[str, str]]) -> dict | None:
         token = secrets.token_hex(32)
         reminder = db.get(Reminder, item.reminder_id)
         task = db.get(Task, reminder.task_id)
-        content = reminder_text(db, item.owner_id, task.title, reminder.reminder_time)
+        content = reminder_followups.stage_text(db, reminder, task.title,
+            reminder_text(db, item.owner_id, task.title, reminder.reminder_time), now)
         changed = db.execute(update(ClawbotDelivery).where(ClawbotDelivery.id == item.id,
             ClawbotDelivery.status == "pending").values(status="claimed", claimed_at=now,
             claim_hash=hashlib.sha256(token.encode()).hexdigest(), content=content))
@@ -176,4 +184,5 @@ def complete_send(db: Session, delivery_id: int, token: str, outcome: str, messa
     reminder.error_code = error_code
     if outcome == "accepted":
         reminder.sent_at = item.finished_at
+    reminder_followups.result(db, item, outcome)
     db.commit()

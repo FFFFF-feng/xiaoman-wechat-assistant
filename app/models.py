@@ -181,6 +181,49 @@ class ClawbotDelivery(Base):
     error_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
+class ReminderFollowupPlan(Base):
+    """One generation of reminders for the task's current deadline."""
+    __tablename__ = "reminder_followup_plans"
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+    task_due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    state: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    due_suppressed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    deferred_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    followup_origin: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class ReminderStage(Base):
+    """Stage metadata keeps legacy due reminders and the existing outbox intact."""
+    __tablename__ = "reminder_stages"
+    __table_args__ = (UniqueConstraint("task_id", "task_due_at", "event_key"),)
+    reminder_id: Mapped[int] = mapped_column(ForeignKey("reminders.id"), primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False, index=True)
+    task_due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    event_key: Mapped[str] = mapped_column(String(60), nullable=False)
+
+
+class ReminderFollowupPreference(Base):
+    __tablename__ = "reminder_followup_preferences"
+    owner_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    advance_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    nudge_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class ReminderActionRequest(Base):
+    """A short task-name answer can resolve an ambiguous reminder control."""
+    __tablename__ = "reminder_action_requests"
+    owner_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    candidates_json: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 class ClawbotStickerPreference(Base):
     __tablename__ = "clawbot_sticker_preferences"
     owner_id: Mapped[str] = mapped_column(String(200), primary_key=True)

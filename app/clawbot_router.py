@@ -28,6 +28,7 @@ from .models import ClawbotMessage
 from .schedule_access import issue_schedule_link, public_base_url
 from .schemas import ChatResponse
 from . import clawbot_delivery
+from . import reminder_followups
 from .clawbot_bindings import load_bindings
 from . import materials
 from . import record_import
@@ -215,6 +216,7 @@ def health():
     return {"status": "ok", "service": "xiaoman-clawbot", "bindings": len(load_bindings()),
             "instance": hashlib.sha256(os.environ["CLAWBOT_BRIDGE_TOKEN"].encode()).hexdigest()[:16],
             "proactive_reminders": clawbot_delivery.enabled(), "reminders": clawbot_delivery.status(),
+            "followup_reminders": reminder_followups.enabled(),
             "stickers_enabled": clawbot_stickers.enabled()}
 
 
