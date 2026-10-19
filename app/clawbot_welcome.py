@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from .clawbot_identity import clawbot_owner
 from .models import ClawbotWelcome
+from .assistant_preferences import snapshot
 from .schedule_access import utc_now
 
 CLAIM_LIFETIME = timedelta(seconds=45)
@@ -26,10 +27,10 @@ def activate(db, owner):
     db.commit()
 
 
-def guide_reply(base_url):
+def guide_reply(base_url, assistant_name='小满'):
     if not base_url:
-        return "引导网页暂时不可用。你可以在 ClawBot 设置中手动修改头像和备注名为“小满”。先试试“查询待办”；网页恢复后再发“使用指南”。"
-    return f"[点击查看小满使用指南]({base_url}/guide)\n保存红色小凤鸟头像，再把 ClawBot 备注为“小满”。按指南里的三步设置，也可以直接体验聊天、待办和提醒。网页不会自动修改微信资料。"
+        return f"引导网页暂时不可用。你可以在 ClawBot 设置中手动修改头像和备注名为“{assistant_name}”。先试试“查询待办”；网页恢复后再发“使用指南”。"
+    return f"[点击查看{assistant_name}使用指南]({base_url}/guide)\n保存红色小凤鸟头像，再把 ClawBot 备注为“{assistant_name}”。也可以说“以后你叫团子”给我取名。网页不会自动修改微信资料。"
 
 
 def recover(db, now):
@@ -60,8 +61,9 @@ def claim(db, bindings, base_url):
             claim_hash=hashlib.sha256(token.encode()).hexdigest()))
         db.commit()
         if changed.rowcount == 1:
+            name = snapshot(db, item.owner_id)['assistant_name']
             return {"id": item.id, "claim_token": token, **binding,
-                    "text": "你好，我是小满。先花一分钟认识我吧：\n" + guide_reply(base_url)}
+                    "text": f"你好，我是{name}。先花一分钟认识我吧：\n" + guide_reply(base_url, name)}
     return None
 
 

@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from .clawbot_identity import clawbot_owner, is_clawbot_owner
 from .models import ClawbotDelivery, Reminder, Task
 from .task_dialogue import remember_send
+from .assistant_preferences import snapshot
+from .reply_style import reminder_reply
 
 CLAIM_LIFETIME = timedelta(seconds=45)
 SEND_UNCERTAIN_AFTER = timedelta(seconds=120)
@@ -46,7 +48,11 @@ def enqueue(db: Session, reminder: Reminder, owner: str, title: str) -> None:
     reminder.channel = "clawbot"
     reminder.status = "queued"
     db.add(ClawbotDelivery(reminder_id=reminder.id, owner_id=owner,
-        content=f"小满提醒：{title}\n计划时间：{reminder.reminder_time.strftime('%m月%d日 %H:%M')}。\n可以发送“打开日程”查看或完成任务。"))
+        content=reminder_text(db, owner, title, reminder.reminder_time)))
+
+
+def reminder_text(db: Session, owner: str, title: str, due_at: datetime) -> str:
+    return reminder_reply(title, snapshot(db, owner), owner + '|' + due_at.isoformat() + '|' + title)
 
 
 def _valid_task(db: Session, item: ClawbotDelivery, now: datetime) -> bool:
@@ -108,13 +114,16 @@ def claim(db: Session, bindings: list[dict[str, str]]) -> dict | None:
             db.commit()
             continue
         token = secrets.token_hex(32)
+        reminder = db.get(Reminder, item.reminder_id)
+        task = db.get(Task, reminder.task_id)
+        content = reminder_text(db, item.owner_id, task.title, reminder.reminder_time)
         changed = db.execute(update(ClawbotDelivery).where(ClawbotDelivery.id == item.id,
             ClawbotDelivery.status == "pending").values(status="claimed", claimed_at=now,
-            claim_hash=hashlib.sha256(token.encode()).hexdigest()))
+            claim_hash=hashlib.sha256(token.encode()).hexdigest(), content=content))
         db.commit()
         if changed.rowcount == 1:
             return {"id": item.id, "claim_token": token, "account_id": binding["account_id"],
-                    "sender_id": binding["sender_id"], "text": item.content}
+                    "sender_id": binding["sender_id"], "text": content}
     return None
 
 

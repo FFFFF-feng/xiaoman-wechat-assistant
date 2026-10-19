@@ -62,6 +62,17 @@ class PendingTaskDialogue(Base):
     last_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
+class AssistantPreference(Base):
+    """Explicit personal names and tone survive history truncation and restarts."""
+    __tablename__ = "assistant_preferences"
+
+    owner_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    assistant_name: Mapped[str] = mapped_column(String(20), default="小满", nullable=False)
+    user_address: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    reply_tone: Mapped[str] = mapped_column(String(20), default="natural", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+
 class ReminderDialogueFocus(Base):
     """The actual sending attempt a short completion reply may refer to."""
     __tablename__ = "reminder_dialogue_focus"

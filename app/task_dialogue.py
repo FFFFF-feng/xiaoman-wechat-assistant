@@ -88,11 +88,11 @@ def draft_command(draft: PendingTaskDialogue) -> ParsedCommand:
                          assumed_time=draft.time_text == '中午12点')
 
 
-def continue_draft(db: Session, owner: str | None, text: str) -> ParsedCommand | None:
+def continue_draft(db: Session, owner: str | None, text: str, *, receipt_text: str | None = None) -> ParsedCommand | None:
     draft = db.get(PendingTaskDialogue, owner or 'local')
     if not draft:
         return None
-    previous = latest_receipt(db, owner, text) if is_clawbot_owner(owner) else None
+    previous = latest_receipt(db, owner, receipt_text or text) if is_clawbot_owner(owner) else None
     valid = draft.expires_at > parser.now_exact_local()
     if is_clawbot_owner(owner):
         valid = valid and bool(previous and previous.status == 'processed' and previous.id == draft.last_message_id)
@@ -183,7 +183,7 @@ def remember_send(db: Session, item: ClawbotDelivery, now: datetime) -> None:
     focus.last_message_id = last.id if last else None
 
 
-def completion_reply(db: Session, owner: str | None, text: str) -> ParsedCommand | None:
+def completion_reply(db: Session, owner: str | None, text: str, *, receipt_text: str | None = None) -> ParsedCommand | None:
     compact = re.sub(r'[\s，,。！!~～]', '', text)
     if not re.search(parser.CREATE_PATTERN + r'|列出|查看|查询|看看|哪些|有什么|待办', text):
         if re.search(r'(?:还没|没有|尚未|未|没|快要|快|差点|差不多)(?:完成|做完|写完|搞定)', text):
@@ -199,7 +199,7 @@ def completion_reply(db: Session, owner: str | None, text: str) -> ParsedCommand
     if negative:
         return ParsedCommand('chat', message='好，还没做完，我先不把它标成完成。')
     focus = db.get(ReminderDialogueFocus, owner or 'local')
-    previous = latest_receipt(db, owner, text) if is_clawbot_owner(owner) else None
+    previous = latest_receipt(db, owner, receipt_text or text) if is_clawbot_owner(owner) else None
     valid = bool(focus and focus.expires_at > parser.now_exact_local())
     if valid and is_clawbot_owner(owner):
         valid = (previous.id if previous else None) == focus.last_message_id
@@ -221,7 +221,7 @@ def completion_reply(db: Session, owner: str | None, text: str) -> ParsedCommand
     return ParsedCommand('complete', task_id=task.id, title=task.title)
 
 
-def finish_turn(db: Session, owner: str | None, text: str, action: str) -> None:
+def finish_turn(db: Session, owner: str | None, text: str, action: str, *, receipt_text: str | None = None) -> None:
     key = owner or 'local'
     draft = db.get(PendingTaskDialogue, key)
     if draft and action != 'clarify':
@@ -233,7 +233,7 @@ def finish_turn(db: Session, owner: str | None, text: str, action: str) -> None:
     if focus and action == 'complete':
         db.delete(focus)
     elif focus and action == 'chat' and re.search(r'(?:还没|没|没有|快|差点).*(?:完成|做完|写完|搞定)', text):
-        previous = latest_receipt(db, owner, text)
+        previous = latest_receipt(db, owner, receipt_text or text)
         if focus.expires_at > parser.now_exact_local() and (previous.id if previous else None) == focus.last_message_id:
             current = latest_receipt(db, owner)
             focus.last_message_id = current.id if current else None

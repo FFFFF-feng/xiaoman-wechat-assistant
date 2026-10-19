@@ -12,6 +12,8 @@ from .models import ClawbotMessage, ConversationTaskContext, Message, Task, Wech
 from .clawbot_identity import is_clawbot_owner
 from .clawbot_delivery import enabled as clawbot_reminders_enabled
 from . import task_dialogue
+from . import assistant_preferences
+from .reply_style import completion_reply
 from .parser import (
     CREATE_PATTERN,
     RELATIVE_MINUTES_PATTERN,
@@ -326,7 +328,7 @@ def _execute_command(
             query = query.where(Task.status.in_(["open", "snoozed"]))
         tasks = db.scalars(query).all()
         if not tasks:
-            return ChatResponse(reply="现在没有符合条件的任务，猫爪暂时空空的。", action=command.action)
+            return ChatResponse(reply="现在没有符合条件的任务。", action=command.action)
         lines = [f"{i + 1}. {task.title}（{task.due_at.strftime('%m月%d日 %H:%M')}，{task.status}）" for i, task in enumerate(tasks)]
         return ChatResponse(reply="给你列好啦：\n" + "\n".join(lines), action=command.action)
 
@@ -343,7 +345,7 @@ def _execute_command(
         )
     if command.action == "complete":
         task.status = "done"
-        reply = f"好耶，已完成「{task.title}」！"
+        reply = completion_reply(task.title, assistant_preferences.snapshot(db, owner_id))
     elif command.action == "cancel":
         task.status = "cancelled"
         reply = f"已取消「{task.title}」。"
@@ -410,6 +412,9 @@ def handle_chat_message(
     remote_conversation = bool(conversation_id and conversation_id.startswith("wechat")) or is_clawbot_owner(conversation_id)
     owner_id = conversation_id if remote_conversation else None
     owner_key = owner_id or "local"
+    receipt_text = normalized
+    normalized = assistant_preferences.strip_address(db, owner_id, normalized)
+    preference_command = assistant_preferences.command(db, owner_id, normalized)
     context = db.get(ConversationTaskContext, owner_key)
     correction = None
     if correction_time_text(normalized) is not None:
@@ -421,7 +426,7 @@ def handle_chat_message(
                 ClawbotMessage.owner_id == owner_id
             ).order_by(desc(ClawbotMessage.created_at), desc(ClawbotMessage.id)).limit(2)).all()
             # The caller has already persisted this incoming text as processing.
-            if rows and rows[0].status == "processing" and rows[0].content.strip() == normalized:
+            if rows and rows[0].status == "processing" and rows[0].content.strip() == receipt_text:
                 rows = rows[1:]
             last = rows[0] if rows else None
             receipt = json.loads(last.response_json) if last and last.response_json else {}
@@ -439,13 +444,15 @@ def handle_chat_message(
     ):
         correction = ParsedCommand("clarify", message="想改到哪个时间？请给一个确定的时刻，例如“改成12:30”。")
     fragment_guard = _fragment_safety_guard(normalized)
-    pending_command = task_dialogue.continue_draft(db, owner_id, normalized) if fragment_guard is None else None
+    pending_command = (task_dialogue.continue_draft(db, owner_id, normalized, receipt_text=receipt_text)
+                       if fragment_guard is None and preference_command is None else None)
     db.flush()
-    guard = (fragment_guard or pending_command or correction
-             or task_dialogue.completion_reply(db, owner_id, normalized)
+    guard = (preference_command or fragment_guard or pending_command or correction
+             or task_dialogue.completion_reply(db, owner_id, normalized, receipt_text=receipt_text)
              or task_dialogue.orphan_time_reply(normalized))
     rule_command = parse_command(normalized)
-    model_command = parse_with_model(normalized, history=history) if use_model and guard is None else None
+    model_command = (parse_with_model(normalized, history=history, preferences=assistant_preferences.snapshot(db, owner_id))
+                     if use_model and guard is None else None)
     command = guard or _reconcile_commands(normalized, model_command, rule_command, None)
     if command.action == 'clarify' and guard is None:
         snooze_task = None
@@ -466,7 +473,7 @@ def handle_chat_message(
     response = _execute_command(command, db, owner_id=owner_id)
     response.parser = command.source
     if not remote_conversation:
-        record_message(db, "chat_user", normalized)
+        record_message(db, "chat_user", receipt_text)
         record_message(db, "chat_assistant", response.reply)
     if response.action in {"create", "snooze"} and response.task is not None:
         if context is None:
@@ -478,6 +485,6 @@ def handle_chat_message(
             context.expires_at = datetime.now() + timedelta(minutes=15)
     elif context is not None:
         db.delete(context)
-    task_dialogue.finish_turn(db, owner_id, normalized, response.action)
+    task_dialogue.finish_turn(db, owner_id, normalized, response.action, receipt_text=receipt_text)
     db.commit()
     return response

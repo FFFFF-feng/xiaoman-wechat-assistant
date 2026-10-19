@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import os
 
 from . import materials
+from .assistant_preferences import snapshot
 from .models import ClawbotImportSession
 from .schemas import ChatResponse
 
@@ -55,7 +56,7 @@ def collect(db, owner, content):
         if not session.content:
             return ChatResponse(action="import_collect", reply="尚未收到聊天正文，请复制后粘贴文字，再发“整理完毕”。微信转发列表目前无法选择此ClawBot。")
         try:
-            reply = materials.summarize(text=materials.record_text(session.content))
+            reply = materials.summarize(text=materials.record_text(session.content), preferences=snapshot(db, owner))
         except materials.MaterialError as error:
             return ChatResponse(action="import_collect", reply=str(error) + "。内容已保留，可发新的“整理完毕”重试，或“取消整理”退出。")
         db.delete(session)

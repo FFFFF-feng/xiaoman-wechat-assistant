@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from .chat_service import handle_chat_message
+from . import assistant_preferences
 from .clawbot_identity import clawbot_owner
 from .database import get_db
 from .models import ClawbotMessage
@@ -77,13 +78,13 @@ def authenticate(authorization: str | None = Header(default=None)) -> None:
         raise HTTPException(401, "连接器认证失败")
 
 
-def wants_schedule(content: str) -> bool:
+def wants_schedule(content: str, assistant_name: str = '小满') -> bool:
     normalized = re.sub(r"[\s，,。.!！?？]", "", content)
     if normalized in {"我的日程", "日程记录", "日程页面", "日程页", "我的日历", "日历页面", "日历页"}:
         return True
     # Match complete requests, including polite/conversational wrappers. Do not
     # strip negation, quotes, dates or extra instructions into an opening request.
-    prefix = r"(?:小满)?(?:(?:请|麻烦你?|劳驾|能不能|可不可以|可以|能|帮我|替我|给我|我想要|我想|我要)){0,5}"
+    prefix = rf"(?:小满|{re.escape(assistant_name)})?(?:(?:请|麻烦你?|劳驾|能不能|可不可以|可以|能|帮我|替我|给我|我想要|我想|我要)){{0,5}}"
     target = r"(?:我的|我自己的)?(?:日程(?:记录|页面|页|表)?|日历(?:页面|页)?)(?:链接|入口)?"
     action = r"(?:打开|查看|看看|看|进入|访问|跳转到)(?:一下|一眼|下)?"
     request = (
@@ -123,7 +124,7 @@ def _cached(record: ClawbotMessage, payload: BridgeRequest, db: Session, base_ur
         raise HTTPException(409, "消息处理结果不确定，请先查询待办，不要重复创建")
     # 授权链接不存历史；重复投递可重新签发同一用户的短期链接。
     cached = ChatResponse.model_validate_json(record.response_json)
-    if cached.action == "schedule" and wants_schedule(payload.content):
+    if cached.action == "schedule":
         return schedule_reply(db, record.owner_id, base_url)
     if wants_branding(payload.content):
         return branding_reply(base_url)
@@ -158,26 +159,28 @@ def process_message(payload: BridgeRequest, db: Session, base_url: str | None) -
             raise HTTPException(409, "消息正在处理") from None
         record_id = record.id
         try:
+            routed_content = assistant_preferences.strip_address(db, owner, payload.content)
+            current_name = assistant_preferences.snapshot(db, owner)['assistant_name']
             clawbot_stickers.touch(db, owner)
             imported = record_import.collect(db, owner, payload.content)
             if imported is not None:
                 if not any(v["account_id"] == payload.account_id and v["sender_id"] == payload.sender_id for v in load_bindings()):
                     raise HTTPException(403, "接入已撤销")
                 response = imported
-            elif wants_branding(payload.content):
-                response = branding_reply(base_url)
-            elif (announcement_response := clawbot_announcements.command(payload.content, base_url)) is not None:
+            elif wants_branding(routed_content):
+                response = ChatResponse(action='chat', reply=clawbot_welcome.guide_reply(base_url, current_name))
+            elif (announcement_response := clawbot_announcements.command(routed_content, base_url)) is not None:
                 response = announcement_response
-            elif wants_schedule(payload.content):
+            elif wants_schedule(routed_content, assistant_name=current_name):
                 response = schedule_reply(db, owner, base_url)
-            elif (sticker_response := clawbot_stickers.command(db, owner, payload.content, message_key)) is not None:
+            elif (sticker_response := clawbot_stickers.command(db, owner, routed_content, message_key)) is not None:
                 response = sticker_response
             elif materials.wants_record_import(payload.content):
                 if os.getenv("CLAWBOT_MATERIALS_ENABLED", "true").lower() != "true":
                     response = ChatResponse(action="material_error", reply="资料识别已停用，请先发普通文字。")
                 else:
                     try:
-                        reply = materials.record_summary(payload.content)
+                        reply = materials.record_summary(payload.content, preferences=assistant_preferences.snapshot(db, owner))
                         # Recheck authorization after the external model call.
                         if not any(v["account_id"] == payload.account_id and v["sender_id"] == payload.sender_id for v in load_bindings()):
                             raise HTTPException(403, "接入已撤销")

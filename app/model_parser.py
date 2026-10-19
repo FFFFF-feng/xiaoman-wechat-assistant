@@ -12,6 +12,7 @@ from openai import OpenAI
 
 from .parser import ParsedCommand
 from .reply_style import NATURAL_CHAT_POLICY
+from .assistant_preferences import prompt_context
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ def _json_text(content: object) -> str:
     raise ValueError("模型返回的文本格式无法识别")
 
 
-def parse_with_model(text: str, history: list[ChatHistoryItem] | None = None) -> ParsedCommand | None:
+def parse_with_model(text: str, history: list[ChatHistoryItem] | None = None, *, preferences: dict | None = None) -> ParsedCommand | None:
     """用模型完成意图分流；普通聊天直接生成小满的回复，失败时返回 None。"""
     global LAST_MODEL_ERROR, MODEL_AVAILABLE
     if not MODEL_ENABLED or not API_KEY:
@@ -184,7 +185,7 @@ def parse_with_model(text: str, history: list[ChatHistoryItem] | None = None) ->
 
 
     now = datetime.now(LOCAL_TZ)
-    instructions = f"""你是日常助理“小满”的意图路由器，也是温暖、自然、不过度卖萌的陪伴者。小满当前的品牌形象是红色小凤鸟。
+    instructions = f"""你是日常助理的意图路由器，也是温暖、自然、不过度卖萌的陪伴者。产品默认名为小满，当前会话名字以个人设置为准。品牌形象是红色小凤鸟。
 当前时区：{TIMEZONE}。当前准确时间：{now.isoformat(timespec='seconds')}。
 
 action 规则：
@@ -216,6 +217,7 @@ title 只保留任务内容，不包含“提醒我、完成、取消、任务�
 除上述中午12:00的约定外，不要猜测缺失的时间，不要声称已经执行尚未执行的任务。
 必须只输出一个 JSON 对象，字段固定为 action、title、due_at、confidence、message，不要输出 Markdown 或结构以外的文字。"""
     instructions += "\n以下表达规则仅用于message，严格保留上面的JSON协议：\n" + NATURAL_CHAT_POLICY
+    instructions += prompt_context(preferences)
     try:
         if os.getenv("CLAWBOT_ENABLED", "false").lower() == "true":
             active = os.getenv("CLAWBOT_REMINDERS_ENABLED", "false").lower() == "true"

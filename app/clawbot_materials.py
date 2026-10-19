@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from . import materials, clawbot_router
+from .assistant_preferences import snapshot
 from .clawbot_bindings import load_bindings
 from .clawbot_identity import clawbot_owner
 from .database import get_db
@@ -76,7 +77,7 @@ def process_material(payload, db):
             raise HTTPException(409, "该消息已被其他请求领取，未重复识别") from None
         row_id = row.id
         try:
-            reply = materials.summarize(text=text, image=image)
+            reply = materials.summarize(text=text, image=image, preferences=snapshot(db, owner))
             check_binding(payload)  # Revocation can occur while the model is reading.
             result = ChatResponse(action="material_summary", parser="model",
                 reply=reply if image else f"文件阅读结果：\n{reply}" + materials.FOOTER)
