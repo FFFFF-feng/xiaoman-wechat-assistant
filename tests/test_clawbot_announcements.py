@@ -70,7 +70,9 @@ class AnnouncementTests(TestCase):
 
     def test_next_release_notifies_once_and_does_not_reopen_prior_delivery(self):
         self.publish()
-        new=self.releases[0].model_copy(update={'version':'0.2.4'})
+        version = list(map(int, self.releases[0].version.split('.')))
+        version[-1] += 1
+        new=self.releases[0].model_copy(update={'version':'.'.join(map(str, version))})
         with patch('app.release_catalog.catalog',return_value=[new,*self.releases]):
             self.publish(); self.publish()
         self.assertEqual(self.count(),4); self.assertEqual(self.count(Published),2)
