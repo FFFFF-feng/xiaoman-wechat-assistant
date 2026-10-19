@@ -48,6 +48,30 @@ class ConversationTaskContext(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class PendingTaskDialogue(Base):
+    """Validated slots for one unfinished scheduling request, isolated by owner."""
+    __tablename__ = "pending_task_dialogues"
+
+    owner_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id"), nullable=True)
+    date_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    time_text: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class ReminderDialogueFocus(Base):
+    """The actual sending attempt a short completion reply may refer to."""
+    __tablename__ = "reminder_dialogue_focus"
+
+    owner_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    delivery_id: Mapped[int] = mapped_column(ForeignKey("clawbot_deliveries.id"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 class Reminder(Base):
     __tablename__ = "reminders"
 

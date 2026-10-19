@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from .clawbot_identity import clawbot_owner, is_clawbot_owner
 from .models import ClawbotDelivery, Reminder, Task
+from .task_dialogue import remember_send
 
 CLAIM_LIFETIME = timedelta(seconds=45)
 SEND_UNCERTAIN_AFTER = timedelta(seconds=120)
@@ -141,6 +142,8 @@ def begin_send(db: Session, delivery_id: int, token: str, bindings: list[dict[st
     changed = db.execute(update(ClawbotDelivery).where(ClawbotDelivery.id == item.id,
         ClawbotDelivery.status == "claimed", ClawbotDelivery.claim_hash == item.claim_hash
     ).values(status="sending", started_at=now))
+    if changed.rowcount == 1:
+        remember_send(db, item, now)
     db.commit()
     if changed.rowcount != 1:
         raise HTTPException(409, "发送已经开始")

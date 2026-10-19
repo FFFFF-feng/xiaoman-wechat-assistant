@@ -11,6 +11,7 @@ from .model_parser import CHAT_HISTORY_LIMIT, parse_with_model
 from .models import ClawbotMessage, ConversationTaskContext, Message, Task, WechatDialogueMessage, WechatMessage
 from .clawbot_identity import is_clawbot_owner
 from .clawbot_delivery import enabled as clawbot_reminders_enabled
+from . import task_dialogue
 from .parser import (
     CREATE_PATTERN,
     RELATIVE_MINUTES_PATTERN,
@@ -21,7 +22,6 @@ from .parser import (
     has_time_expression,
     now_local,
     parse_command,
-    parse_time_followup,
     parse_task_time_correction,
     reminder_intent_guard,
 )
@@ -130,20 +130,6 @@ def _recent_chat_history(db: Session, conversation_id: str | None = None) -> lis
         }
         for row in rows
     ]
-
-
-def _latest_user_text(history: list[dict[str, str]]) -> str | None:
-    for item in reversed(history):
-        if item.get("role") == "user" and item.get("content", "").strip():
-            return item["content"].strip()
-    return None
-
-
-def _latest_assistant_text(history: list[dict[str, str]]) -> str | None:
-    for item in reversed(history):
-        if item.get("role") == "assistant" and item.get("content", "").strip():
-            return item["content"].strip()
-    return None
 
 
 def _reconcile_commands(
@@ -317,6 +303,7 @@ def _execute_command(
         db.flush()
         if owner_id is None:
             record_message(db, "user", f"创建：{task.title}")
+        task_dialogue.operation_succeeded(db, owner_id, 'create')
         db.commit()
         db.refresh(task)
         return ChatResponse(
@@ -379,6 +366,7 @@ def _execute_command(
     task.updated_at = datetime.now()
     if owner_id is None:
         record_message(db, "user", reply)
+    task_dialogue.operation_succeeded(db, owner_id, command.action)
     db.commit()
     db.refresh(task)
     return ChatResponse(reply=reply, action=command.action, task=task)
@@ -450,15 +438,23 @@ def handle_chat_message(
         or re.search(r"提醒|任务", normalized)
     ):
         correction = ParsedCommand("clarify", message="想改到哪个时间？请给一个确定的时刻，例如“改成12:30”。")
-    followup_command = parse_time_followup(
-        normalized,
-        _latest_user_text(history),
-        _latest_assistant_text(history),
-    )
-    guard = correction or _fragment_safety_guard(normalized)
+    fragment_guard = _fragment_safety_guard(normalized)
+    pending_command = task_dialogue.continue_draft(db, owner_id, normalized) if fragment_guard is None else None
+    db.flush()
+    guard = (fragment_guard or pending_command or correction
+             or task_dialogue.completion_reply(db, owner_id, normalized)
+             or task_dialogue.orphan_time_reply(normalized))
     rule_command = parse_command(normalized)
     model_command = parse_with_model(normalized, history=history) if use_model and guard is None else None
-    command = guard or _reconcile_commands(normalized, model_command, rule_command, followup_command)
+    command = guard or _reconcile_commands(normalized, model_command, rule_command, None)
+    if command.action == 'clarify' and guard is None:
+        snooze_task = None
+        match = re.match(r'^(?:请)?(?:把)?(.+?)(?:延后|推迟|延期|改到)', normalized)
+        if match:
+            snooze_task = _find_task(db, match[1], owner_id=owner_id)
+        draft_command = task_dialogue.seed_draft(db, owner_id, normalized, snooze_task)
+        if draft_command is not None:
+            command = draft_command
     if use_model and model_command is None and command.action == "unknown":
         command = ParsedCommand(
             action="chat",
@@ -482,5 +478,6 @@ def handle_chat_message(
             context.expires_at = datetime.now() + timedelta(minutes=15)
     elif context is not None:
         db.delete(context)
+    task_dialogue.finish_turn(db, owner_id, normalized, response.action)
     db.commit()
     return response
